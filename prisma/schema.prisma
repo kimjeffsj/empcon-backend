@@ -1,0 +1,353 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  passwordHash          String    @map("password_hash")
+  role                  UserRole  @default(EMPLOYEE)
+  status                Status    @default(ACTIVE)
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  lastLogin             DateTime? @map("last_login")
+  failedLoginAttempts   Int       @default(0) @map("failed_login_attempts")
+  accountLockedUntil    DateTime? @map("account_locked_until")
+  tempPasswordHash      String?   @map("temp_password_hash")
+  tempPasswordExpiresAt DateTime? @map("temp_password_expires_at")
+  passwordResetRequired Boolean   @default(false) @map("password_reset_required")
+
+  // Relations
+  employeeProfile          EmployeeProfile?
+  createdDepartments       Department[]      @relation("DepartmentCreatedBy")
+  createdPositions         Position[]        @relation("PositionCreatedBy")
+  schedules                Schedule[]
+  timeEntries              TimeEntry[]
+  overtimeRequests         OvertimeRequest[]
+  approvedOvertimeRequests OvertimeRequest[] @relation("OvertimeApprovedBy")
+  leaveRequests            LeaveRequest[]
+  approvedLeaveRequests    LeaveRequest[]    @relation("LeaveApprovedBy")
+  payslips                 Payslip[]
+  notifications            Notification[]
+  auditLogs                AuditLog[]
+
+  @@map("users")
+}
+
+model EmployeeProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique @map("user_id")
+  firstName             String   @map("first_name")
+  lastName              String   @map("last_name")
+  middleName            String?  @map("middle_name")
+  sinEncrypted          String   @map("sin_encrypted")
+  addressLine1          String   @map("address_line1")
+  addressLine2          String?  @map("address_line2")
+  city                  String
+  province              String
+  postalCode            String   @map("postal_code")
+  phone                 String
+  dob                   DateTime @map("date_of_birth")
+  hireDate              DateTime @map("hire_date")
+  payRate               Decimal  @map("pay_rate") @db.Decimal(10, 2)
+  payType               PayType  @map("pay_type")
+  departmentId          String   @map("department_id")
+  positionId            String   @map("position_id")
+  status                Status   @default(ACTIVE)
+  emergencyContactName  String   @map("emergency_contact_name")
+  emergencyContactPhone String   @map("emergency_contact_phone")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id])
+  position   Position   @relation(fields: [positionId], references: [id])
+
+  @@map("employee_profiles")
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  creator   User              @relation("DepartmentCreatedBy", fields: [createdBy], references: [id])
+  positions Position[]
+  employees EmployeeProfile[]
+
+  @@map("departments")
+}
+
+model Position {
+  id           String   @id @default(cuid())
+  departmentId String   @map("department_id")
+  title        String
+  description  String?
+  createdBy    String   @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  department Department        @relation(fields: [departmentId], references: [id])
+  creator    User              @relation("PositionCreatedBy", fields: [createdBy], references: [id])
+  employees  EmployeeProfile[]
+
+  @@unique([departmentId, title])
+  @@map("positions")
+}
+
+model Schedule {
+  id            String         @id @default(cuid())
+  employeeId    String         @map("employee_id")
+  date          DateTime       @db.Date
+  startTime     DateTime       @map("start_time") @db.Time
+  endTime       DateTime       @map("end_time") @db.Time
+  breakDuration Int            @default(0) @map("break_duration") // in minutes
+  status        ScheduleStatus @default(SCHEDULED)
+  notes         String?
+  createdBy     String         @map("created_by")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  employee    User        @relation(fields: [employeeId], references: [id])
+  timeEntries TimeEntry[]
+
+  @@unique([employeeId, date])
+  @@map("schedules")
+}
+
+model TimeEntry {
+  id               String          @id @default(cuid())
+  employeeId       String          @map("employee_id")
+  scheduleId       String?         @map("schedule_id")
+  clockInTime      DateTime        @map("clock_in_time")
+  clockOutTime     DateTime?       @map("clock_out_time")
+  clockInLocation  String?         @map("clock_in_location")
+  clockOutLocation String?         @map("clock_out_location")
+  clockInIp        String?         @map("clock_in_ip")
+  clockOutIp       String?         @map("clock_out_ip")
+  totalHours       Decimal?        @map("total_hours") @db.Decimal(4, 2)
+  overtimeHours    Decimal?        @map("overtime_hours") @db.Decimal(4, 2)
+  status           TimeEntryStatus @default(CLOCKED_IN)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  employee         User              @relation(fields: [employeeId], references: [id])
+  schedule         Schedule?         @relation(fields: [scheduleId], references: [id])
+  overtimeRequests OvertimeRequest[]
+
+  @@map("time_entries")
+}
+
+model OvertimeRequest {
+  id              String         @id @default(cuid())
+  timeEntryId     String         @map("time_entry_id")
+  employeeId      String         @map("employee_id")
+  requestedHours  Decimal        @map("requested_hours") @db.Decimal(4, 2)
+  reason          String
+  employeeComment String?        @map("employee_comment")
+  managerComment  String?        @map("manager_comment")
+  status          OvertimeStatus @default(PENDING)
+  approvedBy      String?        @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  overtimeRate    Decimal        @default(1.5) @map("overtime_rate") @db.Decimal(3, 2)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  timeEntry TimeEntry @relation(fields: [timeEntryId], references: [id])
+  employee  User      @relation(fields: [employeeId], references: [id])
+  approver  User?     @relation("OvertimeApprovedBy", fields: [approvedBy], references: [id])
+
+  @@map("overtime_requests")
+}
+
+model PayPeriod {
+  id        String          @id @default(cuid())
+  startDate DateTime        @map("start_date") @db.Date
+  endDate   DateTime        @map("end_date") @db.Date
+  payDate   DateTime        @map("pay_date") @db.Date
+  status    PayPeriodStatus @default(OPEN)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  payslips Payslip[]
+
+  @@unique([startDate, endDate])
+  @@map("pay_periods")
+}
+
+model Payslip {
+  id            String   @id @default(cuid())
+  employeeId    String   @map("employee_id")
+  payPeriodId   String   @map("pay_period_id")
+  regularHours  Decimal  @map("regular_hours") @db.Decimal(6, 2)
+  overtimeHours Decimal  @map("overtime_hours") @db.Decimal(6, 2)
+  grossPay      Decimal  @map("gross_pay") @db.Decimal(10, 2)
+  deductions    Decimal  @map("deductions") @db.Decimal(10, 2)
+  netPay        Decimal  @map("net_pay") @db.Decimal(10, 2)
+  filePath      String?  @map("file_path")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  employee  User      @relation(fields: [employeeId], references: [id])
+  payPeriod PayPeriod @relation(fields: [payPeriodId], references: [id])
+
+  @@unique([employeeId, payPeriodId])
+  @@map("payslips")
+}
+
+model LeaveType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isPaid      Boolean  @default(true) @map("is_paid")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  leaveRequests LeaveRequest[]
+
+  @@map("leave_types")
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  employeeId    String      @map("employee_id")
+  leaveTypeId   String      @map("leave_type_id")
+  startDate     DateTime    @map("start_date") @db.Date
+  endDate       DateTime    @map("end_date") @db.Date
+  daysRequested Int         @map("days_requested")
+  reason        String
+  status        LeaveStatus @default(PENDING)
+  approvedBy    String?     @map("approved_by")
+  approvedAt    DateTime?   @map("approved_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  employee  User      @relation(fields: [employeeId], references: [id])
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+  approver  User?     @relation("LeaveApprovedBy", fields: [approvedBy], references: [id])
+
+  @@map("leave_requests")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  action    String
+  tableName String   @map("table_name")
+  recordId  String?  @map("record_id")
+  oldValues Json?    @map("old_values")
+  newValues Json?    @map("new_values")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+  TERMINATED
+}
+
+enum PayType {
+  HOURLY
+  SALARY
+}
+
+enum ScheduleStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum TimeEntryStatus {
+  CLOCKED_IN
+  CLOCKED_OUT
+  ADJUSTED
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+enum PayPeriodStatus {
+  OPEN
+  PROCESSING
+  COMPLETED
+  PAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  DENIED
+  CANCELLED
+}
+
+enum NotificationType {
+  OVERTIME_REQUEST
+  OVERTIME_APPROVED
+  OVERTIME_DENIED
+  LEAVE_REQUEST
+  LEAVE_APPROVED
+  LEAVE_DENIED
+  SCHEDULE_CHANGE
+  PAYROLL_READY
+  SYSTEM_ALERT
+}
