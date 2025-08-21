@@ -7,6 +7,7 @@ import {
   ApiResponse,
   LoginResponse,
 } from "@empcon/types";
+import { PasswordUtils } from "@/utils/password.utils";
 
 export class AuthController {
   static async login(req: Request, res: Response, next: NextFunction) {
@@ -63,8 +64,14 @@ export class AuthController {
         throw new AppError("All password fields are required", 400);
       }
 
-      if (passwordData.newPassword.length < 8) {
-        throw new AppError("Password must be at least 8 characters long", 400);
+      const passwordValidation = PasswordUtils.validatePasswordStrength(
+        passwordData.newPassword
+      );
+      if (!passwordValidation.isValid) {
+        throw new AppError(
+          `Password validation failed: ${passwordValidation.errors.join(", ")}`,
+          400
+        );
       }
 
       await AuthService.changePassword(userId, passwordData);
@@ -100,6 +107,25 @@ export class AuthController {
         data: {
           user: req.user,
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async register(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password, role = "EMPLOYEE" } = req.body;
+
+      if (!email || !password) {
+        throw new AppError("Email and password are required", 400);
+      }
+
+      await AuthService.createUser({ email, password, role });
+
+      res.status(201).json({
+        success: true,
+        message: "User created successfully",
       });
     } catch (error) {
       next(error);

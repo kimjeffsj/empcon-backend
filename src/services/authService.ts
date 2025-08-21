@@ -8,6 +8,7 @@ import {
   PasswordChangeRequest,
   UserRole,
 } from "@empcon/types";
+import { PasswordUtils } from "@/utils/password.utils";
 
 export class AuthService {
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
@@ -36,7 +37,10 @@ export class AuthService {
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    const isPasswordValid = await PasswordUtils.validatePassword(
+      password,
+      user.passwordHash
+    );
 
     if (!isPasswordValid) {
       // Increment failed login attempts
@@ -149,7 +153,7 @@ export class AuthService {
     }
 
     // Hash new password
-    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+    const hashedNewPassword = await PasswordUtils.hashPassword(newPassword);
 
     // Update password and clear temporary password fields
     await prisma.user.update({
@@ -171,5 +175,62 @@ export class AuthService {
         lastLogin: new Date(),
       },
     });
+  }
+
+  static async createUser(userData: {
+    email: string;
+    password: string;
+    role: UserRole;
+  }): Promise<void> {
+    const { email, password, role } = userData;
+
+    // Password validation
+    const passwordValidation = PasswordUtils.validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      throw new AppError(
+        `Password validation failed: ${passwordValidation.errors.join(", ")}`,
+        400
+      );
+    }
+    // Email validation
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      throw new AppError("User already exists", 409);
+    }
+
+    // Hash Password
+    const hashedPassword = await PasswordUtils.hashPassword(password);
+
+    // Create User
+    await prisma.user.create({
+      data: {
+        email: email.toLowerCase(),
+        passwordHash: hashedPassword,
+        role,
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  static async generateTempPassword(userId: string): Promise<string> {
+    const tempPassword = PasswordUtils.generateTempPassword();
+    const hashedTempPassword = await PasswordUtils.hashPassword(tempPassword);
+
+    // Expires in 24 hours
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        tempPasswordHash: hashedTempPassword,
+        tempPasswordExpiresAt: expiresAt,
+        passwordResetRequired: true,
+      },
+    });
+
+    return tempPassword; // for email
   }
 }
