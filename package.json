@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/server.ts",
+    "dev": "nodemon -r tsconfig-paths/register src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "jest",
@@ -26,6 +26,7 @@
   "dependencies": {
     "@empcon/types": "^1.0.0",
     "@prisma/client": "^6.14.0",
+    "@types/ms": "^2.1.0",
     "bcryptjs": "^3.0.2",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -53,6 +54,7 @@
     "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.2"
   }
 }

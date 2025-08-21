@@ -15,10 +15,10 @@ export const config = {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:3000",
   },
-} as const;
+};
 
 // Validate required environment variables
-const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"];
+const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET", "JWT_REFRESH_SECRET"];
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {

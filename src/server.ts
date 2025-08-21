@@ -1,10 +1,16 @@
 import express from "express";
 import compression from "compression";
-import { config } from "./config/env";
-import { corsMiddleware } from "./middleware/cors";
-import { loggerMiddleware } from "./middleware/logger";
-import { securityMiddleware, rateLimitMiddleware } from "./middleware/security";
-import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { config } from "./config/env.config";
+import { corsMiddleware } from "./middleware/cors.middleware";
+import { loggerMiddleware } from "./middleware/logger.middleware";
+import {
+  securityMiddleware,
+  rateLimitMiddleware,
+} from "./middleware/security.middleware";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./middleware/errorHandler.middleware";
 import routes from "./routes";
 
 const app = express();
@@ -68,7 +74,7 @@ const gracefulShutdown = (signal: string) => {
 
     try {
       // Close database connection
-      const { default: prisma } = await import("./config/database");
+      const { default: prisma } = await import("./config/database.config");
       await prisma.$disconnect();
       console.log("Database connection closed.");
     } catch (error) {

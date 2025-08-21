@@ -1,0 +1,108 @@
+import { Request, Response, NextFunction } from "express";
+import { AuthService } from "@/services/authService";
+import { AppError } from "@/middleware/errorHandler.middleware";
+import {
+  LoginRequest,
+  PasswordChangeRequest,
+  ApiResponse,
+  LoginResponse,
+} from "@empcon/types";
+
+export class AuthController {
+  static async login(req: Request, res: Response, next: NextFunction) {
+    try {
+      const loginData: LoginRequest = req.body;
+
+      if (!loginData.email || !loginData.password) {
+        throw new AppError("Email and password are required", 400);
+      }
+
+      const result = await AuthService.login(loginData);
+
+      const response: ApiResponse<LoginResponse> = {
+        success: true,
+        message: "Login successful",
+        data: result,
+      };
+      res.json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async refreshToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        throw new AppError("Refresh token is required", 400);
+      }
+
+      const tokens = await AuthService.refreshToken(refreshToken);
+
+      res.json({
+        success: true,
+        message: "Token refreshed successfully",
+        data: tokens,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const passwordData: PasswordChangeRequest = req.body;
+      const userId = req.user!.userId;
+
+      if (
+        !passwordData.currentPassword ||
+        !passwordData.newPassword ||
+        !passwordData.confirmPassword
+      ) {
+        throw new AppError("All password fields are required", 400);
+      }
+
+      if (passwordData.newPassword.length < 8) {
+        throw new AppError("Password must be at least 8 characters long", 400);
+      }
+
+      await AuthService.changePassword(userId, passwordData);
+
+      res.json({
+        success: true,
+        message: "Password changed successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async logout(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.userId;
+
+      await AuthService.logout(userId);
+
+      res.json({
+        success: true,
+        message: "Logout successful",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      res.json({
+        success: true,
+        data: {
+          user: req.user,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+}
