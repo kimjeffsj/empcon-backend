@@ -1,4 +1,4 @@
-import { PrismaClient, Status, UserRole } from "@prisma/client";
+import { PrismaClient, Status } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 

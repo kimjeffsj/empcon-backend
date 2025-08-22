@@ -64,3 +64,6 @@ export const requireAuthenticated = requireRole([
   "MANAGER",
   "EMPLOYEE",
 ]);
+
+// Alias for backward compatibility
+export const authMiddleware = authenticateToken;

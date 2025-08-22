@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { AuthService } from "@/services/authService";
 import { AppError } from "@/middleware/errorHandler.middleware";
-import {
-  LoginRequest,
-  PasswordChangeRequest,
-  ApiResponse,
-  LoginResponse,
-} from "@empcon/types";
+
 import { PasswordUtils } from "@/utils/password.utils";
+import {
+  ApiResponse,
+  LoginRequest,
+  LoginResponse,
+  PasswordChangeRequest,
+} from "@empcon/types";
 
 export class AuthController {
   static async login(req: Request, res: Response, next: NextFunction) {

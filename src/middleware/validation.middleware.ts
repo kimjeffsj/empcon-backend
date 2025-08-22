@@ -48,3 +48,20 @@ export const validateQuery = (schema: Joi.ObjectSchema) => {
     next();
   };
 };
+
+export const validateRequest = (schema: Joi.ObjectSchema, target: 'body' | 'query' | 'params' = 'body') => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const data = target === 'body' ? req.body : target === 'query' ? req.query : req.params;
+    const { error } = schema.validate(data);
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation error",
+        details: error.details.map((detail) => detail.message),
+      });
+    }
+
+    next();
+  };
+};

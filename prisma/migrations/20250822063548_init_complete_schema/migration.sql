@@ -1,7 +1,4 @@
 -- CreateEnum
-CREATE TYPE "public"."UserRole" AS ENUM ('ADMIN', 'MANAGER', 'EMPLOYEE');
-
--- CreateEnum
 CREATE TYPE "public"."Status" AS ENUM ('ACTIVE', 'INACTIVE', 'PENDING', 'TERMINATED');
 
 -- CreateEnum
@@ -30,7 +27,7 @@ CREATE TABLE "public"."users" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "password_hash" TEXT NOT NULL,
-    "role" "public"."UserRole" NOT NULL DEFAULT 'EMPLOYEE',
+    "role" TEXT NOT NULL DEFAULT 'EMPLOYEE',
     "status" "public"."Status" NOT NULL DEFAULT 'ACTIVE',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -48,6 +45,7 @@ CREATE TABLE "public"."users" (
 CREATE TABLE "public"."employee_profiles" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
+    "employee_number" TEXT NOT NULL,
     "first_name" TEXT NOT NULL,
     "last_name" TEXT NOT NULL,
     "middle_name" TEXT,
@@ -58,15 +56,17 @@ CREATE TABLE "public"."employee_profiles" (
     "province" TEXT NOT NULL,
     "postal_code" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
-    "date_of_birth" TIMESTAMP(3) NOT NULL,
+    "date_of_birth" TIMESTAMP(3),
     "hire_date" TIMESTAMP(3) NOT NULL,
     "pay_rate" DECIMAL(10,2) NOT NULL,
     "pay_type" "public"."PayType" NOT NULL,
     "department_id" TEXT NOT NULL,
     "position_id" TEXT NOT NULL,
+    "manager_id" TEXT,
     "status" "public"."Status" NOT NULL DEFAULT 'ACTIVE',
-    "emergency_contact_name" TEXT NOT NULL,
-    "emergency_contact_phone" TEXT NOT NULL,
+    "emergency_contact_name" TEXT,
+    "emergency_contact_phone" TEXT,
+    "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -78,6 +78,7 @@ CREATE TABLE "public"."departments" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
+    "manager_id" TEXT,
     "created_by" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -251,6 +252,9 @@ CREATE UNIQUE INDEX "users_email_key" ON "public"."users"("email");
 CREATE UNIQUE INDEX "employee_profiles_user_id_key" ON "public"."employee_profiles"("user_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "employee_profiles_employee_number_key" ON "public"."employee_profiles"("employee_number");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "departments_name_key" ON "public"."departments"("name");
 
 -- CreateIndex
@@ -278,7 +282,13 @@ ALTER TABLE "public"."employee_profiles" ADD CONSTRAINT "employee_profiles_depar
 ALTER TABLE "public"."employee_profiles" ADD CONSTRAINT "employee_profiles_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "public"."positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "public"."employee_profiles" ADD CONSTRAINT "employee_profiles_manager_id_fkey" FOREIGN KEY ("manager_id") REFERENCES "public"."employee_profiles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "public"."departments" ADD CONSTRAINT "departments_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."departments" ADD CONSTRAINT "departments_manager_id_fkey" FOREIGN KEY ("manager_id") REFERENCES "public"."employee_profiles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."positions" ADD CONSTRAINT "positions_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "public"."departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
