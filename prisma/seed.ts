@@ -27,7 +27,7 @@ async function main() {
     data: {
       email: adminEmail,
       passwordHash: hashedPassword,
-      role: UserRole.ADMIN,
+      role: "ADMIN",
       status: Status.ACTIVE,
     },
   });
