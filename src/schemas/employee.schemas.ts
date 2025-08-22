@@ -59,9 +59,9 @@ export const employeeListQuerySchema = Joi.object({
   status: Joi.string()
     .valid("ACTIVE", "INACTIVE", "TERMINATED", "ON_LEAVE")
     .optional(),
-  departmentId: Joi.string().uuid().optional(),
-  positionId: Joi.string().uuid().optional(),
-  managerId: Joi.string().uuid().optional(),
+  departmentId: Joi.string().optional(),
+  positionId: Joi.string().optional(),
+  managerId: Joi.string().optional(),
   sortBy: Joi.string()
     .valid("firstName", "lastName", "email", "hireDate", "createdAt")
     .default("createdAt"),
@@ -82,12 +82,12 @@ export const updateDepartmentSchema = Joi.object({
 
 export const createPositionSchema = Joi.object({
   title: Joi.string().min(1).max(100).required(),
-  departmentId: Joi.string().uuid().required(),
+  departmentId: Joi.string().required(),
   description: Joi.string().max(500).optional().allow(""),
 });
 
 export const updatePositionSchema = Joi.object({
   title: Joi.string().min(1).max(100).optional(),
-  departmentId: Joi.string().uuid().optional(),
+  departmentId: Joi.string().optional(),
   description: Joi.string().max(500).optional().allow(""),
 });
