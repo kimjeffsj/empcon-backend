@@ -17,14 +17,6 @@ export class AuthService {
     // Find user by email
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
-      include: {
-        employeeProfile: {
-          select: {
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
     });
 
     if (!user) {
@@ -86,8 +78,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role as UserRole,
-        firstName: user.employeeProfile?.firstName || "",
-        lastName: user.employeeProfile?.lastName || "",
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
       },
       token: accessToken,
       refreshToken,

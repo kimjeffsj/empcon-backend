@@ -28,8 +28,35 @@ model User {
   tempPasswordExpiresAt DateTime? @map("temp_password_expires_at")
   passwordResetRequired Boolean   @default(false) @map("password_reset_required")
 
+  // Employee Information (consolidated from EmployeeProfile)
+  employeeNumber        String?   @unique @map("employee_number")
+  firstName             String?   @map("first_name")
+  lastName              String?   @map("last_name")
+  middleName            String?   @map("middle_name")
+  sinEncrypted          String?   @map("sin_encrypted")
+  addressLine1          String?   @map("address_line1")
+  addressLine2          String?   @map("address_line2")
+  city                  String?
+  province              String?
+  postalCode            String?   @map("postal_code")
+  phone                 String?
+  dateOfBirth           DateTime? @map("date_of_birth")
+  hireDate              DateTime? @map("hire_date")
+  payRate               Decimal?  @map("pay_rate") @db.Decimal(10, 2)
+  payType               PayType?  @map("pay_type")
+  departmentId          String?   @map("department_id")
+  positionId            String?   @map("position_id")
+  managerId             String?   @map("manager_id")
+  emergencyContactName  String?   @map("emergency_contact_name")
+  emergencyContactPhone String?   @map("emergency_contact_phone")
+  notes                 String?
+
   // Relations
-  employeeProfile          EmployeeProfile?
+  department               Department?       @relation("UserDepartment", fields: [departmentId], references: [id])
+  position                 Position?         @relation("UserPosition", fields: [positionId], references: [id])
+  manager                  User?             @relation("ManagerEmployee", fields: [managerId], references: [id])
+  subordinates             User[]            @relation("ManagerEmployee")
+  managedDepartments       Department[]      @relation("DepartmentManager")
   createdDepartments       Department[]      @relation("DepartmentCreatedBy")
   createdPositions         Position[]        @relation("PositionCreatedBy")
   schedules                Schedule[]
@@ -45,44 +72,6 @@ model User {
   @@map("users")
 }
 
-model EmployeeProfile {
-  id                    String   @id @default(cuid())
-  userId                String   @unique @map("user_id")
-  employeeNumber        String   @unique @map("employee_number")
-  firstName             String   @map("first_name")
-  lastName              String   @map("last_name")
-  middleName            String?  @map("middle_name")
-  sinEncrypted          String   @map("sin_encrypted")
-  addressLine1          String   @map("address_line1")
-  addressLine2          String?  @map("address_line2")
-  city                  String
-  province              String
-  postalCode            String   @map("postal_code")
-  phone                 String
-  dob                   DateTime? @map("date_of_birth")
-  hireDate              DateTime @map("hire_date")
-  payRate               Decimal  @map("pay_rate") @db.Decimal(10, 2)
-  payType               PayType  @map("pay_type")
-  departmentId          String   @map("department_id")
-  positionId            String   @map("position_id")
-  managerId             String?  @map("manager_id")
-  status                Status   @default(ACTIVE)
-  emergencyContactName  String?  @map("emergency_contact_name")
-  emergencyContactPhone String?  @map("emergency_contact_phone")
-  notes                 String?
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  department           Department        @relation(fields: [departmentId], references: [id])
-  position             Position          @relation(fields: [positionId], references: [id])
-  manager              EmployeeProfile?  @relation("ManagerEmployee", fields: [managerId], references: [id])
-  subordinates         EmployeeProfile[] @relation("ManagerEmployee")
-  managedDepartments   Department[]      @relation("DepartmentManager")
-
-  @@map("employee_profiles")
-}
 
 model Department {
   id          String   @id @default(cuid())
@@ -94,10 +83,10 @@ model Department {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  creator   User              @relation("DepartmentCreatedBy", fields: [createdBy], references: [id])
-  manager   EmployeeProfile?  @relation("DepartmentManager", fields: [managerId], references: [id])
+  creator   User       @relation("DepartmentCreatedBy", fields: [createdBy], references: [id])
+  manager   User?      @relation("DepartmentManager", fields: [managerId], references: [id])
   positions Position[]
-  employees EmployeeProfile[]
+  employees User[]     @relation("UserDepartment")
 
   @@map("departments")
 }
@@ -112,9 +101,9 @@ model Position {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  department Department        @relation(fields: [departmentId], references: [id])
-  creator    User              @relation("PositionCreatedBy", fields: [createdBy], references: [id])
-  employees  EmployeeProfile[]
+  department Department @relation(fields: [departmentId], references: [id])
+  creator    User       @relation("PositionCreatedBy", fields: [createdBy], references: [id])
+  employees  User[]     @relation("UserPosition")
 
   @@unique([departmentId, title])
   @@map("positions")

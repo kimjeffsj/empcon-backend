@@ -53,73 +53,71 @@ function generateEmployeeNumber(): string {
 }
 
 // Helper to format employee response
-function formatEmployeeResponse(employee: any, userRole?: string, currentUserId?: string): EmployeeResponse {
+function formatEmployeeResponse(user: any, userRole?: string, currentUserId?: string): EmployeeResponse {
   // Determine if SIN should be included
   let includeSIN = false;
   if (userRole === 'ADMIN' || userRole === 'MANAGER') {
     includeSIN = true;
-  } else if (userRole === 'EMPLOYEE' && currentUserId && employee.userId === currentUserId) {
+  } else if (userRole === 'EMPLOYEE' && currentUserId && user.id === currentUserId) {
     includeSIN = true; // Employee can see their own SIN
   }
 
   const response: EmployeeResponse = {
-    id: employee.id,
-    employeeNumber: employee.employeeNumber,
-    firstName: employee.firstName,
-    lastName: employee.lastName,
-    middleName: employee.middleName,
-    email: employee.email,
-    phone: employee.phone,
-    addressLine1: employee.addressLine1,
-    addressLine2: employee.addressLine2,
-    city: employee.city,
-    province: employee.province,
-    postalCode: employee.postalCode,
-    dateOfBirth: employee.dob?.toISOString().split("T")[0] || "",
-    hireDate: employee.hireDate.toISOString().split("T")[0],
-    payRate: employee.payRate,
-    payType: employee.payType,
-    status: employee.status,
-    departmentId: employee.departmentId,
-    positionId: employee.positionId,
-    managerId: employee.managerId,
-    emergencyContactName: employee.emergencyContactName,
-    emergencyContactPhone: employee.emergencyContactPhone,
-    notes: employee.notes,
-    createdAt: employee.createdAt.toISOString(),
-    updatedAt: employee.updatedAt.toISOString(),
-    user: employee.user
+    id: user.id,
+    employeeNumber: user.employeeNumber || "",
+    firstName: user.firstName || "",
+    lastName: user.lastName || "",
+    middleName: user.middleName,
+    email: user.email,
+    phone: user.phone,
+    addressLine1: user.addressLine1,
+    addressLine2: user.addressLine2,
+    city: user.city,
+    province: user.province,
+    postalCode: user.postalCode,
+    dateOfBirth: user.dateOfBirth?.toISOString().split("T")[0] || "",
+    hireDate: user.hireDate?.toISOString().split("T")[0] || "",
+    payRate: user.payRate || 0,
+    payType: user.payType || "HOURLY",
+    status: user.status,
+    departmentId: user.departmentId,
+    positionId: user.positionId,
+    managerId: user.managerId,
+    emergencyContactName: user.emergencyContactName,
+    emergencyContactPhone: user.emergencyContactPhone,
+    notes: user.notes,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    },
+    department: user.department
       ? {
-          id: employee.user.id,
-          email: employee.user.email,
-          role: employee.user.role,
+          id: user.department.id,
+          name: user.department.name,
         }
       : undefined,
-    department: employee.department
+    position: user.position
       ? {
-          id: employee.department.id,
-          name: employee.department.name,
+          id: user.position.id,
+          title: user.position.title,
         }
       : undefined,
-    position: employee.position
+    manager: user.manager
       ? {
-          id: employee.position.id,
-          title: employee.position.title,
-        }
-      : undefined,
-    manager: employee.manager
-      ? {
-          id: employee.manager.id,
-          firstName: employee.manager.firstName,
-          lastName: employee.manager.lastName,
+          id: user.manager.id,
+          firstName: user.manager.firstName,
+          lastName: user.manager.lastName,
         }
       : undefined,
   };
 
   // Include SIN if user has permission
-  if (includeSIN && employee.sinEncrypted) {
+  if (includeSIN && user.sinEncrypted) {
     try {
-      response.sin = decryptSIN(employee.sinEncrypted);
+      response.sin = decryptSIN(user.sinEncrypted);
     } catch (error) {
       console.error("Error decrypting SIN:", error);
       // Don't include SIN if decryption fails
@@ -143,19 +141,19 @@ export const employeeController = {
         });
       }
 
-      const employee = await prisma.employeeProfile.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id },
         select: { sinEncrypted: true }
       });
 
-      if (!employee || !employee.sinEncrypted) {
+      if (!user || !user.sinEncrypted) {
         return res.status(404).json({
           success: false,
           error: 'Employee or SIN not found'
         });
       }
 
-      const decryptedSIN = decryptSIN(employee.sinEncrypted);
+      const decryptedSIN = decryptSIN(user.sinEncrypted);
 
       res.json({
         success: true,
@@ -189,6 +187,34 @@ export const employeeController = {
       // Build where clause
       const where: any = {};
 
+      // Role-based filtering
+      const userRole = req.user?.role;
+      const currentUserId = req.user?.userId;
+
+      if (userRole === 'ADMIN') {
+        // ADMIN can see MANAGER and EMPLOYEE roles
+        where.role = {
+          in: ['MANAGER', 'EMPLOYEE']
+        };
+      } else if (userRole === 'MANAGER') {
+        // MANAGER can only see EMPLOYEE roles
+        where.role = 'EMPLOYEE';
+      } else if (userRole === 'EMPLOYEE') {
+        // EMPLOYEE can only see their own profile
+        where.id = currentUserId;
+      } else {
+        // No valid role - return empty result
+        return res.json({
+          employees: [],
+          pagination: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+        });
+      }
+
       if (search) {
         where.OR = [
           { firstName: { contains: search, mode: "insensitive" } },
@@ -203,21 +229,14 @@ export const employeeController = {
       if (positionId) where.positionId = positionId;
       if (managerId) where.managerId = managerId;
 
-      // Get employees with relations
-      const [employees, total] = await Promise.all([
-        prisma.employeeProfile.findMany({
+      // Get users with relations
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
           where,
           skip,
           take: Number(limit),
           orderBy: { [sortBy as string]: sortOrder },
           include: {
-            user: {
-              select: {
-                id: true,
-                email: true,
-                role: true,
-              },
-            },
             department: {
               select: {
                 id: true,
@@ -239,11 +258,11 @@ export const employeeController = {
             },
           },
         }),
-        prisma.employeeProfile.count({ where }),
+        prisma.user.count({ where }),
       ]);
 
-      const formattedEmployees = employees.map(emp => 
-        formatEmployeeResponse(emp, req.user?.role, req.user?.userId)
+      const formattedEmployees = users.map(user => 
+        formatEmployeeResponse(user, req.user?.role, req.user?.userId)
       );
 
       const response: EmployeeListResponse = {
@@ -271,16 +290,9 @@ export const employeeController = {
     try {
       const { id } = req.params;
 
-      const employee = await prisma.employeeProfile.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id },
         include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              role: true,
-            },
-          },
           department: {
             select: {
               id: true,
@@ -303,7 +315,7 @@ export const employeeController = {
         },
       });
 
-      if (!employee) {
+      if (!user) {
         return res.status(404).json({
           success: false,
           error: "Employee not found",
@@ -312,7 +324,7 @@ export const employeeController = {
 
       const response: ApiResponse<EmployeeResponse> = {
         success: true,
-        data: formatEmployeeResponse(employee, req.user?.role, req.user?.userId),
+        data: formatEmployeeResponse(user, req.user?.role, req.user?.userId),
       };
 
       res.json(response);
@@ -336,22 +348,16 @@ export const employeeController = {
       // Encrypt SIN
       const sinEncrypted = encryptSIN(employeeData.sin);
 
-      // Create user account first
+      // Create user with employee data
       const user = await prisma.user.create({
         data: {
           email: employeeData.email,
           passwordHash: "", // Will be set when user first logs in
-          role: "EMPLOYEE",
-          status: "ACTIVE", // Set to ACTIVE for immediate access
+          role: employeeData.role || "EMPLOYEE",
+          status: "ACTIVE",
           failedLoginAttempts: 0,
           passwordResetRequired: true,
-        },
-      });
-
-      // Create employee profile
-      const employee = await prisma.employeeProfile.create({
-        data: {
-          userId: user.id,
+          // Employee information
           employeeNumber,
           firstName: employeeData.firstName,
           lastName: employeeData.lastName,
@@ -363,26 +369,18 @@ export const employeeController = {
           province: employeeData.province,
           postalCode: employeeData.postalCode,
           phone: employeeData.phone,
-          dob: new Date(employeeData.dateOfBirth),
+          dateOfBirth: new Date(employeeData.dateOfBirth),
           hireDate: new Date(employeeData.hireDate),
           payRate: employeeData.payRate || 0,
           payType: employeeData.payType,
           departmentId: employeeData.departmentId,
           positionId: employeeData.positionId,
           managerId: employeeData.managerId || null,
-          status: "ACTIVE",
           emergencyContactName: employeeData.emergencyContactName,
           emergencyContactPhone: employeeData.emergencyContactPhone,
           notes: employeeData.notes,
         },
         include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              role: true,
-            },
-          },
           department: {
             select: {
               id: true,
@@ -407,7 +405,7 @@ export const employeeController = {
 
       const response: ApiResponse<EmployeeResponse> = {
         success: true,
-        data: formatEmployeeResponse(employee, req.user?.role, req.user?.userId),
+        data: formatEmployeeResponse(user, req.user?.role, req.user?.userId),
         message: "Employee created successfully",
       };
 
@@ -428,11 +426,11 @@ export const employeeController = {
       const updateData: UpdateEmployeeRequest = req.body;
 
       // Check if employee exists
-      const existingEmployee = await prisma.employeeProfile.findUnique({
+      const existingUser = await prisma.user.findUnique({
         where: { id },
       });
 
-      if (!existingEmployee) {
+      if (!existingUser) {
         return res.status(404).json({
           success: false,
           error: "Employee not found",
@@ -460,7 +458,7 @@ export const employeeController = {
       if (updateData.postalCode !== undefined)
         updatePayload.postalCode = updateData.postalCode;
       if (updateData.dateOfBirth !== undefined)
-        updatePayload.dob = new Date(updateData.dateOfBirth);
+        updatePayload.dateOfBirth = new Date(updateData.dateOfBirth);
       if (updateData.hireDate !== undefined)
         updatePayload.hireDate = new Date(updateData.hireDate);
       if (updateData.payRate !== undefined)
@@ -487,18 +485,11 @@ export const employeeController = {
         updatePayload.sinEncrypted = encryptSIN(updateData.sin);
       }
 
-      // Update employee
-      const employee = await prisma.employeeProfile.update({
+      // Update user
+      const user = await prisma.user.update({
         where: { id },
         data: updatePayload,
         include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              role: true,
-            },
-          },
           department: {
             select: {
               id: true,
@@ -521,17 +512,11 @@ export const employeeController = {
         },
       });
 
-      // Update user email if provided
-      if (updateData.email && updateData.email !== existingEmployee.userId) {
-        await prisma.user.update({
-          where: { id: existingEmployee.userId },
-          data: { email: updateData.email },
-        });
-      }
+      // Email is already updated in the main update above
 
       const response: ApiResponse<EmployeeResponse> = {
         success: true,
-        data: formatEmployeeResponse(employee, req.user?.role, req.user?.userId),
+        data: formatEmployeeResponse(user, req.user?.role, req.user?.userId),
         message: "Employee updated successfully",
       };
 
@@ -551,27 +536,21 @@ export const employeeController = {
       const { id } = req.params;
 
       // Check if employee exists
-      const employee = await prisma.employeeProfile.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id },
       });
 
-      if (!employee) {
+      if (!user) {
         return res.status(404).json({
           success: false,
           error: "Employee not found",
         });
       }
 
-      // Soft delete - update status to TERMINATED
-      await prisma.employeeProfile.update({
+      // Soft delete - update status to TERMINATED and INACTIVE
+      await prisma.user.update({
         where: { id },
         data: { status: "TERMINATED" },
-      });
-
-      // Also deactivate user account
-      await prisma.user.update({
-        where: { id: employee.userId },
-        data: { status: "INACTIVE" },
       });
 
       const response: ApiResponse = {
