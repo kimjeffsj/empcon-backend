@@ -22,12 +22,17 @@ export const rateLimitMiddleware = rateLimit({
   legacyHeaders: false,
 });
 
-export const authRateLimitMiddleware = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs for auth endpoints
-  message: {
-    error: "Too many authentication attempts, please try again later.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Development: Rate limiting disabled for auth endpoints
+// export const authRateLimitMiddleware = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 5, // limit each IP to 5 requests per windowMs for auth endpoints
+//   message: {
+//     error: "Too many authentication attempts, please try again later.",
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
+
+// Production 시 아래 삭제
+export const authRateLimitMiddleware = (req: any, res: any, next: any) =>
+  next();

@@ -27,10 +27,10 @@ router.get('/:id', employeeController.getEmployeeById);
 router.post(
   '/',
   (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
+    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'MANAGER') {
       return res.status(403).json({
         success: false,
-        error: 'Only administrators can create employees'
+        error: 'Only administrators and managers can create employees'
       });
     }
     next();
@@ -43,10 +43,10 @@ router.post(
 router.put(
   '/:id',
   (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
+    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'MANAGER') {
       return res.status(403).json({
         success: false,
-        error: 'Only administrators can update employees'
+        error: 'Only administrators and managers can update employees'
       });
     }
     next();

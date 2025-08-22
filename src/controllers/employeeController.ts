@@ -342,6 +342,14 @@ export const employeeController = {
     try {
       const employeeData: CreateEmployeeRequest = req.body;
 
+      // Check role permissions: MANAGER can only create EMPLOYEE role
+      if (req.user?.role === 'MANAGER' && employeeData.role === 'MANAGER') {
+        return res.status(403).json({
+          success: false,
+          error: 'Managers can only create employees with EMPLOYEE role'
+        });
+      }
+
       // Generate employee number
       const employeeNumber = generateEmployeeNumber();
 

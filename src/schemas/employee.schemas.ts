@@ -15,6 +15,7 @@ export const createEmployeeSchema = Joi.object({
   hireDate: Joi.string().isoDate().required(),
   payRate: Joi.number().min(0).max(999999).required(),
   payType: Joi.string().valid("HOURLY", "SALARY").required(),
+  role: Joi.string().valid("EMPLOYEE", "MANAGER").optional().default("EMPLOYEE"),
   departmentId: Joi.string().required(),
   positionId: Joi.string().required(),
   managerId: Joi.string().optional().allow("", null),

@@ -4,17 +4,20 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better layer caching
 COPY package.json package-lock.json* ./
 
-# Install all dependencies (including devDependencies for development)
+# Install dependencies (this layer will be cached unless package.json changes)
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy Prisma schema for client generation
+COPY prisma ./prisma
 
-# Generate Prisma client
+# Generate Prisma client (this layer will be cached unless schema changes)
 RUN npx prisma generate
+
+# Copy source code (this layer changes most frequently)
+COPY . .
 
 # Expose port
 EXPOSE 5002
