@@ -19,7 +19,11 @@ const ALGORITHM = "aes-256-cbc";
 
 function encryptSIN(sin: string): string {
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.slice(0, 32)), iv);
+  const cipher = crypto.createCipheriv(
+    ALGORITHM,
+    Buffer.from(ENCRYPTION_KEY.slice(0, 32)),
+    iv
+  );
   let encrypted = cipher.update(sin, "utf8", "hex");
   encrypted += cipher.final("hex");
   return iv.toString("hex") + ":" + encrypted;
@@ -29,7 +33,11 @@ function decryptSIN(encryptedSIN: string): string {
   const parts = encryptedSIN.split(":");
   const iv = Buffer.from(parts[0], "hex");
   const encrypted = parts[1];
-  const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.slice(0, 32)), iv);
+  const decipher = crypto.createDecipheriv(
+    ALGORITHM,
+    Buffer.from(ENCRYPTION_KEY.slice(0, 32)),
+    iv
+  );
   let decrypted = decipher.update(encrypted, "hex", "utf8");
   decrypted += decipher.final("utf8");
   return decrypted;
@@ -45,8 +53,16 @@ function generateEmployeeNumber(): string {
 }
 
 // Helper to format employee response
-function formatEmployeeResponse(employee: any): EmployeeResponse {
-  return {
+function formatEmployeeResponse(employee: any, userRole?: string, currentUserId?: string): EmployeeResponse {
+  // Determine if SIN should be included
+  let includeSIN = false;
+  if (userRole === 'ADMIN' || userRole === 'MANAGER') {
+    includeSIN = true;
+  } else if (userRole === 'EMPLOYEE' && currentUserId && employee.userId === currentUserId) {
+    includeSIN = true; // Employee can see their own SIN
+  }
+
+  const response: EmployeeResponse = {
     id: employee.id,
     employeeNumber: employee.employeeNumber,
     firstName: employee.firstName,
@@ -99,9 +115,60 @@ function formatEmployeeResponse(employee: any): EmployeeResponse {
         }
       : undefined,
   };
+
+  // Include SIN if user has permission
+  if (includeSIN && employee.sinEncrypted) {
+    try {
+      response.sin = decryptSIN(employee.sinEncrypted);
+    } catch (error) {
+      console.error("Error decrypting SIN:", error);
+      // Don't include SIN if decryption fails
+    }
+  }
+
+  return response;
 }
 
 export const employeeController = {
+  // GET /api/employees/:id/sin - Get employee SIN (ADMIN only)
+  async getEmployeeSIN(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      // Check if user is admin
+      if (req.user?.role !== 'ADMIN') {
+        return res.status(403).json({
+          success: false,
+          error: 'Only administrators can view SIN numbers'
+        });
+      }
+
+      const employee = await prisma.employeeProfile.findUnique({
+        where: { id },
+        select: { sinEncrypted: true }
+      });
+
+      if (!employee || !employee.sinEncrypted) {
+        return res.status(404).json({
+          success: false,
+          error: 'Employee or SIN not found'
+        });
+      }
+
+      const decryptedSIN = decryptSIN(employee.sinEncrypted);
+
+      res.json({
+        success: true,
+        data: { sin: decryptedSIN }
+      });
+    } catch (error) {
+      console.error("Error fetching employee SIN:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+      });
+    }
+  },
   // GET /api/employees
   async getEmployees(req: Request, res: Response) {
     try {
@@ -117,7 +184,7 @@ export const employeeController = {
         sortOrder = "desc",
       } = req.query as Partial<EmployeeListRequest>;
 
-      const skip = ((page as number) - 1) * (limit as number);
+      const skip = (page - 1) * limit;
 
       // Build where clause
       const where: any = {};
@@ -141,7 +208,7 @@ export const employeeController = {
         prisma.employeeProfile.findMany({
           where,
           skip,
-          take: limit as number,
+          take: Number(limit),
           orderBy: { [sortBy as string]: sortOrder },
           include: {
             user: {
@@ -175,15 +242,17 @@ export const employeeController = {
         prisma.employeeProfile.count({ where }),
       ]);
 
-      const formattedEmployees = employees.map(formatEmployeeResponse);
+      const formattedEmployees = employees.map(emp => 
+        formatEmployeeResponse(emp, req.user?.role, req.user?.userId)
+      );
 
       const response: EmployeeListResponse = {
         employees: formattedEmployees,
         pagination: {
           total,
-          page: page as number,
-          limit: limit as number,
-          totalPages: Math.ceil(total / (limit as number)),
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
         },
       };
 
@@ -243,7 +312,7 @@ export const employeeController = {
 
       const response: ApiResponse<EmployeeResponse> = {
         success: true,
-        data: formatEmployeeResponse(employee),
+        data: formatEmployeeResponse(employee, req.user?.role, req.user?.userId),
       };
 
       res.json(response);
@@ -273,7 +342,7 @@ export const employeeController = {
           email: employeeData.email,
           passwordHash: "", // Will be set when user first logs in
           role: "EMPLOYEE",
-          status: "PENDING",
+          status: "ACTIVE", // Set to ACTIVE for immediate access
           failedLoginAttempts: 0,
           passwordResetRequired: true,
         },
@@ -296,11 +365,11 @@ export const employeeController = {
           phone: employeeData.phone,
           dob: new Date(employeeData.dateOfBirth),
           hireDate: new Date(employeeData.hireDate),
-          payRate: employeeData.payRate,
+          payRate: employeeData.payRate || 0,
           payType: employeeData.payType,
           departmentId: employeeData.departmentId,
           positionId: employeeData.positionId,
-          managerId: employeeData.managerId,
+          managerId: employeeData.managerId || null,
           status: "ACTIVE",
           emergencyContactName: employeeData.emergencyContactName,
           emergencyContactPhone: employeeData.emergencyContactPhone,
@@ -338,7 +407,7 @@ export const employeeController = {
 
       const response: ApiResponse<EmployeeResponse> = {
         success: true,
-        data: formatEmployeeResponse(employee),
+        data: formatEmployeeResponse(employee, req.user?.role, req.user?.userId),
         message: "Employee created successfully",
       };
 
@@ -395,7 +464,7 @@ export const employeeController = {
       if (updateData.hireDate !== undefined)
         updatePayload.hireDate = new Date(updateData.hireDate);
       if (updateData.payRate !== undefined)
-        updatePayload.payRate = updateData.payRate;
+        updatePayload.payRate = updateData.payRate || 0;
       if (updateData.payType !== undefined)
         updatePayload.payType = updateData.payType;
       if (updateData.departmentId !== undefined)
@@ -403,7 +472,7 @@ export const employeeController = {
       if (updateData.positionId !== undefined)
         updatePayload.positionId = updateData.positionId;
       if (updateData.managerId !== undefined)
-        updatePayload.managerId = updateData.managerId;
+        updatePayload.managerId = updateData.managerId || null;
       if (updateData.status !== undefined)
         updatePayload.status = updateData.status;
       if (updateData.emergencyContactName !== undefined)
@@ -462,7 +531,7 @@ export const employeeController = {
 
       const response: ApiResponse<EmployeeResponse> = {
         success: true,
-        data: formatEmployeeResponse(employee),
+        data: formatEmployeeResponse(employee, req.user?.role, req.user?.userId),
         message: "Employee updated successfully",
       };
 
