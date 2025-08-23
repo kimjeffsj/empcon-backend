@@ -3,7 +3,12 @@ import { AuthController } from "@/controllers/authController";
 import { authenticateToken } from "@/middleware/auth.middleware";
 import { validateBody } from "@/middleware/validation.middleware";
 import { authRateLimitMiddleware } from "@/middleware/security.middleware";
-import { authSchemas } from "@/schemas";
+import { 
+  loginSchema,
+  registerSchema,
+  refreshTokenSchema,
+  changePasswordSchema
+} from "@empcon/types";
 
 const router = Router();
 
@@ -11,21 +16,21 @@ const router = Router();
 router.post(
   "/login",
   authRateLimitMiddleware,
-  validateBody(authSchemas.login),
+  validateBody(loginSchema),
   AuthController.login
 );
 
 router.post(
   "/refresh",
   authRateLimitMiddleware,
-  validateBody(authSchemas.refreshToken),
+  validateBody(refreshTokenSchema),
   AuthController.refreshToken
 );
 
 router.post(
   "/register",
   authRateLimitMiddleware,
-  validateBody(authSchemas.register),
+  validateBody(registerSchema),
   AuthController.register
 );
 
@@ -36,7 +41,7 @@ router.get("/profile", AuthController.getProfile);
 router.post("/logout", AuthController.logout);
 router.put(
   "/change-password",
-  validateBody(authSchemas.changePassword),
+  validateBody(changePasswordSchema),
   AuthController.changePassword
 );
 

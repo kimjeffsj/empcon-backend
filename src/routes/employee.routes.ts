@@ -6,7 +6,7 @@ import {
   createEmployeeSchema,
   updateEmployeeSchema,
   employeeListQuerySchema
-} from '../schemas/employee.schemas';
+} from '@empcon/types';
 
 const router = Router();
 

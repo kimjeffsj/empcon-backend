@@ -1,15 +1,14 @@
 import { Request, Response, NextFunction } from "express";
-import Joi from "joi";
 
-export const validateBody = (schema: Joi.ObjectSchema) => {
+export const validateBody = (schema: any) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const { error } = schema.validate(req.body);
+    const result = schema.safeParse(req.body);
 
-    if (error) {
+    if (!result.success) {
       return res.status(400).json({
         success: false,
         error: "Validation error",
-        details: error.details.map((detail) => detail.message),
+        details: result.error.issues.map((issue: any) => issue.message),
       });
     }
 
@@ -17,15 +16,15 @@ export const validateBody = (schema: Joi.ObjectSchema) => {
   };
 };
 
-export const validateParams = (schema: Joi.ObjectSchema) => {
+export const validateParams = (schema: any) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const { error } = schema.validate(req.params);
+    const result = schema.safeParse(req.params);
 
-    if (error) {
+    if (!result.success) {
       return res.status(400).json({
         success: false,
         error: "Validation error",
-        details: error.details.map((detail) => detail.message),
+        details: result.error.issues.map((issue: any) => issue.message),
       });
     }
 
@@ -33,15 +32,15 @@ export const validateParams = (schema: Joi.ObjectSchema) => {
   };
 };
 
-export const validateQuery = (schema: Joi.ObjectSchema) => {
+export const validateQuery = (schema: any) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const { error } = schema.validate(req.query);
+    const result = schema.safeParse(req.query);
 
-    if (error) {
+    if (!result.success) {
       return res.status(400).json({
         success: false,
         error: "Validation error",
-        details: error.details.map((detail) => detail.message),
+        details: result.error.issues.map((issue: any) => issue.message),
       });
     }
 
@@ -49,7 +48,7 @@ export const validateQuery = (schema: Joi.ObjectSchema) => {
   };
 };
 
-export const validateRequest = (schema: Joi.ObjectSchema, target: 'body' | 'query' | 'params' = 'body') => {
+export const validateRequest = (schema: any, target: 'body' | 'query' | 'params' = 'body') => {
   return (req: Request, res: Response, next: NextFunction) => {
     const data = target === 'body' ? req.body : target === 'query' ? req.query : req.params;
     
@@ -62,16 +61,16 @@ export const validateRequest = (schema: Joi.ObjectSchema, target: 'body' | 'quer
         data
     });
 
-    const { error } = schema.validate(data, { abortEarly: false });
+    const result = schema.safeParse(data);
 
-    if (error) {
+    if (!result.success) {
       console.error(`❌ [ValidationMiddleware] Validation failed for ${target}:`, {
         url: req.originalUrl,
         method: req.method,
-        errors: error.details.map((detail) => ({
-          field: detail.path.join('.'),
-          message: detail.message,
-          value: detail.context?.value
+        errors: result.error.issues.map((issue: any) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
+          value: issue.code
         })),
         receivedData: target === 'body' ? 
           { ...data, sin: data.sin ? '[REDACTED]' : undefined } : 
@@ -81,7 +80,7 @@ export const validateRequest = (schema: Joi.ObjectSchema, target: 'body' | 'quer
       return res.status(400).json({
         success: false,
         error: "Validation error",
-        details: error.details.map((detail) => detail.message),
+        details: result.error.issues.map((issue: any) => issue.message),
       });
     }
 

@@ -53,12 +53,20 @@ function generateEmployeeNumber(): string {
 }
 
 // Helper to format employee response
-function formatEmployeeResponse(user: any, userRole?: string, currentUserId?: string): EmployeeResponse {
+function formatEmployeeResponse(
+  user: any,
+  userRole?: string,
+  currentUserId?: string
+): EmployeeResponse {
   // Determine if SIN should be included
   let includeSIN = false;
-  if (userRole === 'ADMIN' || userRole === 'MANAGER') {
+  if (userRole === "ADMIN" || userRole === "MANAGER") {
     includeSIN = true;
-  } else if (userRole === 'EMPLOYEE' && currentUserId && user.id === currentUserId) {
+  } else if (
+    userRole === "EMPLOYEE" &&
+    currentUserId &&
+    user.id === currentUserId
+  ) {
     includeSIN = true; // Employee can see their own SIN
   }
 
@@ -134,22 +142,22 @@ export const employeeController = {
       const { id } = req.params;
 
       // Check if user is admin
-      if (req.user?.role !== 'ADMIN') {
+      if (req.user?.role !== "ADMIN") {
         return res.status(403).json({
           success: false,
-          error: 'Only administrators can view SIN numbers'
+          error: "Only administrators can view SIN numbers",
         });
       }
 
       const user = await prisma.user.findUnique({
         where: { id },
-        select: { sinEncrypted: true }
+        select: { sinEncrypted: true },
       });
 
       if (!user || !user.sinEncrypted) {
         return res.status(404).json({
           success: false,
-          error: 'Employee or SIN not found'
+          error: "Employee or SIN not found",
         });
       }
 
@@ -157,7 +165,7 @@ export const employeeController = {
 
       res.json({
         success: true,
-        data: { sin: decryptedSIN }
+        data: { sin: decryptedSIN },
       });
     } catch (error) {
       console.error("Error fetching employee SIN:", error);
@@ -191,15 +199,15 @@ export const employeeController = {
       const userRole = req.user?.role;
       const currentUserId = req.user?.userId;
 
-      if (userRole === 'ADMIN') {
+      if (userRole === "ADMIN") {
         // ADMIN can see MANAGER and EMPLOYEE roles
         where.role = {
-          in: ['MANAGER', 'EMPLOYEE']
+          in: ["MANAGER", "EMPLOYEE"],
         };
-      } else if (userRole === 'MANAGER') {
+      } else if (userRole === "MANAGER") {
         // MANAGER can only see EMPLOYEE roles
-        where.role = 'EMPLOYEE';
-      } else if (userRole === 'EMPLOYEE') {
+        where.role = "EMPLOYEE";
+      } else if (userRole === "EMPLOYEE") {
         // EMPLOYEE can only see their own profile
         where.id = currentUserId;
       } else {
@@ -261,7 +269,7 @@ export const employeeController = {
         prisma.user.count({ where }),
       ]);
 
-      const formattedEmployees = users.map(user => 
+      const formattedEmployees = users.map((user) =>
         formatEmployeeResponse(user, req.user?.role, req.user?.userId)
       );
 
@@ -343,10 +351,10 @@ export const employeeController = {
       const employeeData: CreateEmployeeRequest = req.body;
 
       // Check role permissions: MANAGER can only create EMPLOYEE role
-      if (req.user?.role === 'MANAGER' && employeeData.role === 'MANAGER') {
+      if (req.user?.role === "MANAGER" && employeeData.role === "MANAGER") {
         return res.status(403).json({
           success: false,
-          error: 'Managers can only create employees with EMPLOYEE role'
+          error: "Managers can only create employees with EMPLOYEE role",
         });
       }
 

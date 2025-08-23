@@ -5,7 +5,7 @@ import { validateRequest } from '../middleware/validation.middleware';
 import {
   createDepartmentSchema,
   updateDepartmentSchema
-} from '../schemas/employee.schemas';
+} from '@empcon/types';
 
 const router = Router();
 
