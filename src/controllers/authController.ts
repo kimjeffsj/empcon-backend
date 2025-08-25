@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { AuthService } from "@/services/authService";
 import { AppError } from "@/middleware/errorHandler.middleware";
+import { config } from "@/config/env.config";
 
 import { PasswordUtils } from "@/utils/password.utils";
 import {
@@ -9,6 +10,18 @@ import {
   LoginResponse,
   PasswordChangeRequest,
 } from "@empcon/types";
+
+// Cookie configuration constants
+const getCookieOptions = (maxAge: number) => ({
+  httpOnly: true,
+  secure: config.nodeEnv === 'production',
+  sameSite: 'strict' as const,
+  maxAge,
+  path: '/',
+});
+
+const accessTokenOptions = getCookieOptions(15 * 60 * 1000); // 15 minutes
+const refreshTokenOptions = getCookieOptions(7 * 24 * 60 * 60 * 1000); // 7 days
 
 export class AuthController {
   static async login(req: Request, res: Response, next: NextFunction) {
@@ -21,10 +34,17 @@ export class AuthController {
 
       const result = await AuthService.login(loginData);
 
-      const response: ApiResponse<LoginResponse> = {
+      // Set httpOnly cookies
+      res.cookie('accessToken', result.token, accessTokenOptions);
+      res.cookie('refreshToken', result.refreshToken, refreshTokenOptions);
+
+      // Return user data without tokens
+      const response: ApiResponse<Omit<LoginResponse, 'token' | 'refreshToken'>> = {
         success: true,
         message: "Login successful",
-        data: result,
+        data: {
+          user: result.user,
+        },
       };
       res.json(response);
     } catch (error) {
@@ -34,7 +54,8 @@ export class AuthController {
 
   static async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
-      const { refreshToken } = req.body;
+      // Try to get refresh token from cookies first, then from body for backward compatibility
+      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
       if (!refreshToken) {
         throw new AppError("Refresh token is required", 400);
@@ -42,10 +63,14 @@ export class AuthController {
 
       const tokens = await AuthService.refreshToken(refreshToken);
 
+      // Set new httpOnly cookies
+      res.cookie('accessToken', tokens.accessToken, accessTokenOptions);
+      res.cookie('refreshToken', tokens.refreshToken, refreshTokenOptions);
+
       res.json({
         success: true,
         message: "Token refreshed successfully",
-        data: tokens,
+        data: {}, // No tokens returned in response body
       });
     } catch (error) {
       next(error);
@@ -91,6 +116,20 @@ export class AuthController {
       const userId = req.user!.userId;
 
       await AuthService.logout(userId);
+
+      // Clear cookies with same options used when setting them
+      res.clearCookie('accessToken', { 
+        httpOnly: true, 
+        secure: config.nodeEnv === 'production', 
+        sameSite: 'strict',
+        path: '/',
+      });
+      res.clearCookie('refreshToken', { 
+        httpOnly: true, 
+        secure: config.nodeEnv === 'production', 
+        sameSite: 'strict',
+        path: '/',
+      });
 
       res.json({
         success: true,

@@ -1,5 +1,6 @@
 import express from "express";
 import compression from "compression";
+import cookieParser from "cookie-parser";
 import { config } from "./config/env.config";
 import { corsMiddleware } from "./middleware/cors.middleware";
 import { loggerMiddleware } from "./middleware/logger.middleware";
@@ -14,6 +15,9 @@ import {
 import routes from "./routes";
 
 const app = express();
+
+// Cookie parsing middleware
+app.use(cookieParser());
 
 // Security middleware
 app.use(securityMiddleware);

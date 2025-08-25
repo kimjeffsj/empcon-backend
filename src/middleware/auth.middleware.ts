@@ -16,8 +16,9 @@ export const authenticateToken = (
   res: Response,
   next: NextFunction
 ) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
+  // Try cookie first, fallback to header for backward compatibility
+  const token = req.cookies.accessToken || 
+                (req.headers.authorization && req.headers.authorization.split(" ")[1]);
 
   if (!token) {
     throw new AppError("Access token required", 401);
