@@ -385,8 +385,8 @@ export const employeeController = {
           province: employeeData.province,
           postalCode: employeeData.postalCode,
           phone: employeeData.phone,
-          dateOfBirth: new Date(employeeData.dateOfBirth),
-          hireDate: new Date(employeeData.hireDate),
+          dateOfBirth: employeeData.dateOfBirth,
+          hireDate: employeeData.hireDate,
           payRate: employeeData.payRate || 0,
           payType: employeeData.payType,
           departmentId: employeeData.departmentId,
@@ -474,9 +474,9 @@ export const employeeController = {
       if (updateData.postalCode !== undefined)
         updatePayload.postalCode = updateData.postalCode;
       if (updateData.dateOfBirth !== undefined)
-        updatePayload.dateOfBirth = new Date(updateData.dateOfBirth);
+        updatePayload.dateOfBirth = updateData.dateOfBirth;
       if (updateData.hireDate !== undefined)
-        updatePayload.hireDate = new Date(updateData.hireDate);
+        updatePayload.hireDate = updateData.hireDate;
       if (updateData.payRate !== undefined)
         updatePayload.payRate = updateData.payRate || 0;
       if (updateData.payType !== undefined)

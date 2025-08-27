@@ -14,10 +14,10 @@ import {
 // Cookie configuration constants
 const getCookieOptions = (maxAge: number) => ({
   httpOnly: true,
-  secure: config.nodeEnv === 'production',
-  sameSite: 'strict' as const,
+  secure: config.nodeEnv === "production",
+  sameSite: "strict" as const,
   maxAge,
-  path: '/',
+  path: "/",
 });
 
 const accessTokenOptions = getCookieOptions(15 * 60 * 1000); // 15 minutes
@@ -35,11 +35,13 @@ export class AuthController {
       const result = await AuthService.login(loginData);
 
       // Set httpOnly cookies
-      res.cookie('accessToken', result.token, accessTokenOptions);
-      res.cookie('refreshToken', result.refreshToken, refreshTokenOptions);
+      res.cookie("accessToken", result.token, accessTokenOptions);
+      res.cookie("refreshToken", result.refreshToken, refreshTokenOptions);
 
       // Return user data without tokens
-      const response: ApiResponse<Omit<LoginResponse, 'token' | 'refreshToken'>> = {
+      const response: ApiResponse<
+        Omit<LoginResponse, "token" | "refreshToken">
+      > = {
         success: true,
         message: "Login successful",
         data: {
@@ -64,8 +66,8 @@ export class AuthController {
       const tokens = await AuthService.refreshToken(refreshToken);
 
       // Set new httpOnly cookies
-      res.cookie('accessToken', tokens.accessToken, accessTokenOptions);
-      res.cookie('refreshToken', tokens.refreshToken, refreshTokenOptions);
+      res.cookie("accessToken", tokens.accessToken, accessTokenOptions);
+      res.cookie("refreshToken", tokens.refreshToken, refreshTokenOptions);
 
       res.json({
         success: true,
@@ -118,17 +120,17 @@ export class AuthController {
       await AuthService.logout(userId);
 
       // Clear cookies with same options used when setting them
-      res.clearCookie('accessToken', { 
-        httpOnly: true, 
-        secure: config.nodeEnv === 'production', 
-        sameSite: 'strict',
-        path: '/',
+      res.clearCookie("accessToken", {
+        httpOnly: true,
+        secure: config.nodeEnv === "production",
+        sameSite: "strict",
+        path: "/",
       });
-      res.clearCookie('refreshToken', { 
-        httpOnly: true, 
-        secure: config.nodeEnv === 'production', 
-        sameSite: 'strict',
-        path: '/',
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: config.nodeEnv === "production",
+        sameSite: "strict",
+        path: "/",
       });
 
       res.json({
