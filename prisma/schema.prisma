@@ -40,8 +40,8 @@ model User {
   province              String?
   postalCode            String?   @map("postal_code")
   phone                 String?
-  dateOfBirth           DateTime? @map("date_of_birth")
-  hireDate              DateTime? @map("hire_date")
+  dateOfBirth           String?   @map("date_of_birth")
+  hireDate              String?   @map("hire_date")
   payRate               Decimal?  @map("pay_rate") @db.Decimal(10, 2)
   payType               PayType?  @map("pay_type")
   departmentId          String?   @map("department_id")
