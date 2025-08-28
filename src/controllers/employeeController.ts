@@ -136,6 +136,72 @@ function formatEmployeeResponse(
 }
 
 export const employeeController = {
+  // GET /api/employees/validate/email - Check email availability
+  async validateEmail(req: Request, res: Response) {
+    try {
+      const { email } = req.query;
+      
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'Email parameter is required'
+        });
+      }
+
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, email: true }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          available: !existingUser,
+          message: existingUser ? 'Email is already in use' : 'Email is available'
+        }
+      });
+    } catch (error) {
+      console.error('Error validating email:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  },
+
+  // GET /api/employees/validate/employee-number - Check employee number availability
+  async validateEmployeeNumber(req: Request, res: Response) {
+    try {
+      const { number } = req.query;
+      
+      if (!number || typeof number !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'Employee number parameter is required'
+        });
+      }
+
+      const existingUser = await prisma.user.findFirst({
+        where: { employeeNumber: number },
+        select: { id: true, employeeNumber: true }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          available: !existingUser,
+          message: existingUser ? 'Employee number is already in use' : 'Employee number is available'
+        }
+      });
+    } catch (error) {
+      console.error('Error validating employee number:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  },
+
   // GET /api/employees/:id/sin - Get employee SIN (ADMIN only)
   async getEmployeeSIN(req: Request, res: Response) {
     try {
@@ -462,6 +528,8 @@ export const employeeController = {
         updatePayload.lastName = updateData.lastName;
       if (updateData.middleName !== undefined)
         updatePayload.middleName = updateData.middleName;
+      if (updateData.email !== undefined)
+        updatePayload.email = updateData.email;
       if (updateData.phone !== undefined)
         updatePayload.phone = updateData.phone;
       if (updateData.addressLine1 !== undefined)

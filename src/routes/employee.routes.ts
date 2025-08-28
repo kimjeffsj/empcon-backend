@@ -13,6 +13,12 @@ const router = Router();
 // All employee routes require authentication
 router.use(authMiddleware);
 
+// GET /api/employees/validate/email - Check email availability
+router.get('/validate/email', employeeController.validateEmail);
+
+// GET /api/employees/validate/employee-number - Check employee number availability  
+router.get('/validate/employee-number', employeeController.validateEmployeeNumber);
+
 // GET /api/employees - Get all employees with filtering/pagination
 router.get(
   '/',
