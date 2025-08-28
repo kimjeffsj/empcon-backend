@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import prisma from "@/config/database.config";
 import { generateTokens, verifyRefreshToken } from "@/utils/jwt.utils";
 import { AppError } from "@/middleware/errorHandler.middleware";
@@ -126,6 +125,15 @@ export class AuthService {
       throw new AppError("New password and confirm password do not match", 400);
     }
 
+    // Validate new password strength
+    const passwordValidation = PasswordUtils.validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      throw new AppError(
+        `Password validation failed: ${passwordValidation.errors.join(", ")}`,
+        400
+      );
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -134,8 +142,8 @@ export class AuthService {
       throw new AppError("User not found", 404);
     }
 
-    // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(
+    // Verify current password using PasswordUtils for consistency
+    const isCurrentPasswordValid = await PasswordUtils.validatePassword(
       currentPassword,
       user.passwordHash
     );

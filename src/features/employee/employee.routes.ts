@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { employeeController } from '../controllers/employeeController';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { validateRequest } from '../middleware/validation.middleware';
+import { employeeController } from './employee.controller';
+import { authMiddleware } from '../../middleware/auth.middleware';
+import { validateRequest } from '../../middleware/validation.middleware';
 import {
   createEmployeeSchema,
   updateEmployeeSchema,

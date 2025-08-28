@@ -1,7 +1,7 @@
 import { Router } from "express";
 import healthRoutes from "./health.routes";
 import authRoutes from "./auth.routes";
-import employeeRoutes from "./employee.routes";
+import employeeRoutes from "../features/employee/employee.routes";
 import departmentRoutes from "./department.routes";
 import positionRoutes from "./position.routes";
 

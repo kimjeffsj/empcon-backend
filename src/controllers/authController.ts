@@ -3,7 +3,6 @@ import { AuthService } from "@/services/authService";
 import { AppError } from "@/middleware/errorHandler.middleware";
 import { config } from "@/config/env.config";
 
-import { PasswordUtils } from "@/utils/password.utils";
 import {
   ApiResponse,
   LoginRequest,
@@ -20,8 +19,16 @@ const getCookieOptions = (maxAge: number) => ({
   path: "/",
 });
 
+const getClearCookieOptions = () => ({
+  httpOnly: true,
+  secure: config.nodeEnv === "production",
+  sameSite: "strict" as const,
+  path: "/",
+});
+
 const accessTokenOptions = getCookieOptions(15 * 60 * 1000); // 15 minutes
 const refreshTokenOptions = getCookieOptions(7 * 24 * 60 * 60 * 1000); // 7 days
+const clearCookieOptions = getClearCookieOptions();
 
 export class AuthController {
   static async login(req: Request, res: Response, next: NextFunction) {
@@ -92,16 +99,6 @@ export class AuthController {
         throw new AppError("All password fields are required", 400);
       }
 
-      const passwordValidation = PasswordUtils.validatePasswordStrength(
-        passwordData.newPassword
-      );
-      if (!passwordValidation.isValid) {
-        throw new AppError(
-          `Password validation failed: ${passwordValidation.errors.join(", ")}`,
-          400
-        );
-      }
-
       await AuthService.changePassword(userId, passwordData);
 
       res.json({
@@ -120,18 +117,8 @@ export class AuthController {
       await AuthService.logout(userId);
 
       // Clear cookies with same options used when setting them
-      res.clearCookie("accessToken", {
-        httpOnly: true,
-        secure: config.nodeEnv === "production",
-        sameSite: "strict",
-        path: "/",
-      });
-      res.clearCookie("refreshToken", {
-        httpOnly: true,
-        secure: config.nodeEnv === "production",
-        sameSite: "strict",
-        path: "/",
-      });
+      res.clearCookie("accessToken", clearCookieOptions);
+      res.clearCookie("refreshToken", clearCookieOptions);
 
       res.json({
         success: true,
