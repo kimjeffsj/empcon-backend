@@ -52,22 +52,37 @@ function generateEmployeeNumber(): string {
   return `EMP${timestamp}${random}`;
 }
 
+// Helper to create masked SIN (xxx-xxx-123)
+function createMaskedSIN(encryptedSIN: string): string {
+  try {
+    const decrypted = decryptSIN(encryptedSIN);
+    const cleaned = decrypted.replace(/\D/g, "");
+    if (cleaned.length >= 9) {
+      const lastThree = cleaned.slice(-3);
+      return `xxx-xxx-${lastThree}`;
+    }
+    return "xxx-xxx-xxx";
+  } catch (error) {
+    return "xxx-xxx-xxx";
+  }
+}
+
 // Helper to format employee response
 function formatEmployeeResponse(
   user: any,
   userRole?: string,
   currentUserId?: string
 ): EmployeeResponse {
-  // Determine if SIN should be included
-  let includeSIN = false;
+  // Determine if user has permission to see SIN existence
+  let canSeeSINInfo = false;
   if (userRole === "ADMIN" || userRole === "MANAGER") {
-    includeSIN = true;
+    canSeeSINInfo = true;
   } else if (
     userRole === "EMPLOYEE" &&
     currentUserId &&
     user.id === currentUserId
   ) {
-    includeSIN = true; // Employee can see their own SIN
+    canSeeSINInfo = true; // Employee can see their own SIN info
   }
 
   const response: EmployeeResponse = {
@@ -122,14 +137,17 @@ function formatEmployeeResponse(
       : undefined,
   };
 
-  // Include SIN if user has permission
-  if (includeSIN && user.sinEncrypted) {
+  // Add masked SIN if user has permission and SIN exists
+  if (canSeeSINInfo && user.sinEncrypted) {
     try {
-      response.sin = decryptSIN(user.sinEncrypted);
+      response.sinMasked = createMaskedSIN(user.sinEncrypted);
+      response.hasSIN = true;
     } catch (error) {
-      console.error("Error decrypting SIN:", error);
-      // Don't include SIN if decryption fails
+      console.error("Error creating masked SIN:", error);
+      response.hasSIN = false;
     }
+  } else {
+    response.hasSIN = !!user.sinEncrypted;
   }
 
   return response;
@@ -140,31 +158,33 @@ export const employeeController = {
   async validateEmail(req: Request, res: Response) {
     try {
       const { email } = req.query;
-      
-      if (!email || typeof email !== 'string') {
+
+      if (!email || typeof email !== "string") {
         return res.status(400).json({
           success: false,
-          error: 'Email parameter is required'
+          error: "Email parameter is required",
         });
       }
 
       const existingUser = await prisma.user.findUnique({
         where: { email },
-        select: { id: true, email: true }
+        select: { id: true, email: true },
       });
 
       res.json({
         success: true,
         data: {
           available: !existingUser,
-          message: existingUser ? 'Email is already in use' : 'Email is available'
-        }
+          message: existingUser
+            ? "Email is already in use"
+            : "Email is available",
+        },
       });
     } catch (error) {
-      console.error('Error validating email:', error);
+      console.error("Error validating email:", error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   },
@@ -173,31 +193,33 @@ export const employeeController = {
   async validateEmployeeNumber(req: Request, res: Response) {
     try {
       const { number } = req.query;
-      
-      if (!number || typeof number !== 'string') {
+
+      if (!number || typeof number !== "string") {
         return res.status(400).json({
           success: false,
-          error: 'Employee number parameter is required'
+          error: "Employee number parameter is required",
         });
       }
 
       const existingUser = await prisma.user.findFirst({
         where: { employeeNumber: number },
-        select: { id: true, employeeNumber: true }
+        select: { id: true, employeeNumber: true },
       });
 
       res.json({
         success: true,
         data: {
           available: !existingUser,
-          message: existingUser ? 'Employee number is already in use' : 'Employee number is available'
-        }
+          message: existingUser
+            ? "Employee number is already in use"
+            : "Employee number is available",
+        },
       });
     } catch (error) {
-      console.error('Error validating employee number:', error);
+      console.error("Error validating employee number:", error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   },
@@ -207,11 +229,11 @@ export const employeeController = {
     try {
       const { id } = req.params;
 
-      // Check if user is admin
-      if (req.user?.role !== "ADMIN") {
+      // Check if user has permission (ADMIN or MANAGER)
+      if (req.user?.role !== "ADMIN" && req.user?.role !== "MANAGER") {
         return res.status(403).json({
           success: false,
-          error: "Only administrators can view SIN numbers",
+          error: "Only administrators and managers can view SIN numbers",
         });
       }
 

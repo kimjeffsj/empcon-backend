@@ -29,6 +29,9 @@ router.get(
 // GET /api/employees/:id - Get employee by ID
 router.get('/:id', employeeController.getEmployeeById);
 
+// GET /api/employees/:id/sin - Get employee SIN (ADMIN & MANAGER only)
+router.get('/:id/sin', employeeController.getEmployeeSIN);
+
 // POST /api/employees - Create new employee (ADMIN only)
 router.post(
   '/',
