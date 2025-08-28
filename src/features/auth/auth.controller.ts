@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AuthService } from "@/services/authService";
+import { AuthService } from "@/features/auth/auth.service";
 import { AppError } from "@/middleware/errorHandler.middleware";
 import { config } from "@/config/env.config";
 

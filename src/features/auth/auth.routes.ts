@@ -1,13 +1,13 @@
 import { Router } from "express";
-import { AuthController } from "@/controllers/authController";
+import { AuthController } from "@/features/auth/auth.controller";
 import { authenticateToken } from "@/middleware/auth.middleware";
 import { validateBody } from "@/middleware/validation.middleware";
 import { authRateLimitMiddleware } from "@/middleware/security.middleware";
-import { 
+import {
   loginSchema,
   registerSchema,
   refreshTokenSchema,
-  changePasswordSchema
+  changePasswordSchema,
 } from "@empcon/types";
 
 const router = Router();

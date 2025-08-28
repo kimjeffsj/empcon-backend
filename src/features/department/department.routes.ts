@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { departmentController } from '../controllers/departmentController';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { validateRequest } from '../middleware/validation.middleware';
+import { departmentController } from './department.controller';
+import { authMiddleware } from '../../middleware/auth.middleware';
+import { validateRequest } from '../../middleware/validation.middleware';
 import {
   createDepartmentSchema,
   updateDepartmentSchema

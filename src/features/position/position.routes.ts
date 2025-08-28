@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { positionController } from '../controllers/positionController';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { validateRequest } from '../middleware/validation.middleware';
+import { positionController } from './position.controller';
+import { authMiddleware } from '../../middleware/auth.middleware';
+import { validateRequest } from '../../middleware/validation.middleware';
 import {
   createPositionSchema,
   updatePositionSchema
