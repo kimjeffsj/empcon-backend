@@ -457,6 +457,8 @@ export class EmployeeService {
       updatePayload.payRate = updateData.payRate || 0;
     if (updateData.payType !== undefined)
       updatePayload.payType = updateData.payType;
+    if (updateData.role !== undefined)
+      updatePayload.role = updateData.role;
     if (updateData.departmentId !== undefined)
       updatePayload.departmentId = updateData.departmentId;
     if (updateData.positionId !== undefined)
