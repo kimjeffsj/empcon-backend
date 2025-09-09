@@ -59,7 +59,8 @@ model User {
   managedDepartments       Department[]      @relation("DepartmentManager")
   createdDepartments       Department[]      @relation("DepartmentCreatedBy")
   createdPositions         Position[]        @relation("PositionCreatedBy")
-  schedules                Schedule[]
+  schedules                Schedule[]        @relation("UserSchedule")
+  createdSchedules         Schedule[]        @relation("ScheduleCreator")
   timeEntries              TimeEntry[]
   overtimeRequests         OvertimeRequest[]
   approvedOvertimeRequests OvertimeRequest[] @relation("OvertimeApprovedBy")
@@ -112,39 +113,54 @@ model Position {
 model Schedule {
   id            String         @id @default(cuid())
   employeeId    String         @map("employee_id")
-  date          DateTime       @db.Date
-  startTime     DateTime       @map("start_time") @db.Time
-  endTime       DateTime       @map("end_time") @db.Time
+  startTime     DateTime       @map("start_time") // UTC DateTime - includes date + time
+  endTime       DateTime       @map("end_time")   // UTC DateTime - includes date + time
   breakDuration Int            @default(0) @map("break_duration") // in minutes
+  position      String?        // Optional: specify position for this shift
   status        ScheduleStatus @default(SCHEDULED)
   notes         String?
+  isActive      Boolean        @default(true) @map("is_active")
   createdBy     String         @map("created_by")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
   // Relations
-  employee    User        @relation(fields: [employeeId], references: [id])
+  employee    User        @relation("UserSchedule", fields: [employeeId], references: [id], onDelete: Cascade)
+  creator     User        @relation("ScheduleCreator", fields: [createdBy], references: [id])
   timeEntries TimeEntry[]
 
-  @@unique([employeeId, date])
+  // Prevent exact duplicates but allow multiple shifts per day
+  @@unique([employeeId, startTime, endTime])
+  // Optimize queries for employee schedules by date range
+  @@index([employeeId, startTime])
+  // Optimize queries for daily schedule views
+  @@index([startTime, endTime])
   @@map("schedules")
 }
 
 model TimeEntry {
-  id               String          @id @default(cuid())
-  employeeId       String          @map("employee_id")
-  scheduleId       String?         @map("schedule_id")
-  clockInTime      DateTime        @map("clock_in_time")
-  clockOutTime     DateTime?       @map("clock_out_time")
-  clockInLocation  String?         @map("clock_in_location")
-  clockOutLocation String?         @map("clock_out_location")
-  clockInIp        String?         @map("clock_in_ip")
-  clockOutIp       String?         @map("clock_out_ip")
-  totalHours       Decimal?        @map("total_hours") @db.Decimal(4, 2)
-  overtimeHours    Decimal?        @map("overtime_hours") @db.Decimal(4, 2)
-  status           TimeEntryStatus @default(CLOCKED_IN)
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  id                   String          @id @default(cuid())
+  employeeId           String          @map("employee_id")
+  scheduleId           String?         @map("schedule_id")
+  clockInTime          DateTime        @map("clock_in_time")
+  clockOutTime         DateTime?       @map("clock_out_time")
+  clockInLocation      String?         @map("clock_in_location")
+  clockOutLocation     String?         @map("clock_out_location")
+  clockInIp            String?         @map("clock_in_ip")
+  clockOutIp           String?         @map("clock_out_ip")
+  
+  // Grace Period handling fields
+  scheduledStartTime   DateTime?       @map("scheduled_start_time")  // Original scheduled time
+  scheduledEndTime     DateTime?       @map("scheduled_end_time")    // Original scheduled end time
+  adjustedStartTime    DateTime?       @map("adjusted_start_time")   // Grace period adjusted time
+  adjustedEndTime      DateTime?       @map("adjusted_end_time")     // Grace period adjusted end time
+  gracePeriodApplied   Boolean         @default(false) @map("grace_period_applied")
+  
+  totalHours           Decimal?        @map("total_hours") @db.Decimal(4, 2)
+  overtimeHours        Decimal?        @map("overtime_hours") @db.Decimal(4, 2)
+  status               TimeEntryStatus @default(CLOCKED_IN)
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
 
   // Relations
   employee         User              @relation(fields: [employeeId], references: [id])
