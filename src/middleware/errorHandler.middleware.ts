@@ -69,3 +69,10 @@ export const notFoundHandler = (req: Request, res: Response) => {
     error: `Route ${req.originalUrl} not found`,
   });
 };
+
+// Higher Order Function for controller error handling
+export const catchAsync = (fn: (req: Request, res: Response, next?: NextFunction) => Promise<any>) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};

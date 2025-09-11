@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { EmployeeService } from "./employee.service";
+import { catchAsync } from "../../middleware/errorHandler.middleware";
 import {
   CreateEmployeeRequest,
   UpdateEmployeeRequest,
@@ -10,248 +11,145 @@ import {
 
 export const employeeController = {
   // GET /api/employees/validate/email - Check email availability
-  async validateEmail(req: Request, res: Response) {
-    try {
-      const { email } = req.query;
+  validateEmail: catchAsync(async (req: Request, res: Response) => {
+    const { email } = req.query;
 
-      if (!email || typeof email !== "string") {
-        return res.status(400).json({
-          success: false,
-          error: "Email parameter is required",
-        });
-      }
-
-      const result = await EmployeeService.validateEmail(email);
-
-      res.json({
-        success: true,
-        data: result,
-      });
-    } catch (error) {
-      console.error("Error validating email:", error);
-      res.status(500).json({
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({
         success: false,
-        error: "Internal server error",
+        error: "Email parameter is required",
       });
     }
-  },
+
+    const result = await EmployeeService.validateEmail(email);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  }),
 
   // GET /api/employees/validate/employee-number - Check employee number availability
-  async validateEmployeeNumber(req: Request, res: Response) {
-    try {
-      const { number } = req.query;
+  validateEmployeeNumber: catchAsync(async (req: Request, res: Response) => {
+    const { number } = req.query;
 
-      if (!number || typeof number !== "string") {
-        return res.status(400).json({
-          success: false,
-          error: "Employee number parameter is required",
-        });
-      }
-
-      const result = await EmployeeService.validateEmployeeNumber(number);
-
-      res.json({
-        success: true,
-        data: result,
-      });
-    } catch (error) {
-      console.error("Error validating employee number:", error);
-      res.status(500).json({
+    if (!number || typeof number !== "string") {
+      return res.status(400).json({
         success: false,
-        error: "Internal server error",
+        error: "Employee number parameter is required",
       });
     }
-  },
+
+    const result = await EmployeeService.validateEmployeeNumber(number);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  }),
 
   // GET /api/employees/:id/sin - Get employee SIN (ADMIN & MANAGER only)
-  async getEmployeeSIN(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
+  getEmployeeSIN: catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const userRole = req.user!.role;
 
-      // Check if user has permission (ADMIN or MANAGER)
-      if (req.user?.role !== "ADMIN" && req.user?.role !== "MANAGER") {
-        return res.status(403).json({
-          success: false,
-          error: "Only administrators and managers can view SIN numbers",
-        });
-      }
-
-      const sin = await EmployeeService.getEmployeeSIN(id);
-
-      res.json({
-        success: true,
-        data: { sin },
-      });
-    } catch (error) {
-      console.error("Error fetching employee SIN:", error);
-      if (error instanceof Error && error.message === "Employee or SIN not found") {
-        return res.status(404).json({
-          success: false,
-          error: error.message,
-        });
-      }
-      res.status(500).json({
+    // Check if user has permission (ADMIN or MANAGER)
+    if (userRole !== "ADMIN" && userRole !== "MANAGER") {
+      return res.status(403).json({
         success: false,
-        error: "Internal server error",
+        error: "Only administrators and managers can view SIN numbers",
       });
     }
-  },
+
+    const sin = await EmployeeService.getEmployeeSIN(id);
+
+    res.json({
+      success: true,
+      data: { sin },
+    });
+  }),
 
   // GET /api/employees
-  async getEmployees(req: Request, res: Response) {
-    try {
-      const query = req.query as Partial<EmployeeListRequest>;
-      const userRole = req.user?.role;
-      const currentUserId = req.user?.userId;
+  getEmployees: catchAsync(async (req: Request, res: Response) => {
+    const query = req.query as Partial<EmployeeListRequest>;
+    const userRole = req.user!.role;
+    const currentUserId = req.user!.userId;
 
-      if (!userRole || !currentUserId) {
-        return res.status(401).json({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
+    const response = await EmployeeService.getEmployees(query, userRole, currentUserId);
 
-      const response = await EmployeeService.getEmployees(query, userRole, currentUserId);
-
-      res.json(response);
-    } catch (error) {
-      console.error("Error fetching employees:", error);
-      res.status(500).json({
-        success: false,
-        error: "Internal server error",
-      });
-    }
-  },
+    res.json(response);
+  }),
 
   // GET /api/employees/:id
-  async getEmployeeById(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
+  getEmployeeById: catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const userRole = req.user!.role;
+    const currentUserId = req.user!.userId;
 
-      const employee = await EmployeeService.getEmployeeById(
-        id,
-        req.user?.role,
-        req.user?.userId
-      );
+    const employee = await EmployeeService.getEmployeeById(
+      id,
+      userRole,
+      currentUserId
+    );
 
-      const response: ApiResponse<EmployeeResponse> = {
-        success: true,
-        data: employee,
-      };
+    const response: ApiResponse<EmployeeResponse> = {
+      success: true,
+      data: employee,
+    };
 
-      res.json(response);
-    } catch (error) {
-      console.error("Error fetching employee:", error);
-      if (error instanceof Error && error.message === "Employee not found") {
-        return res.status(404).json({
-          success: false,
-          error: error.message,
-        });
-      }
-      res.status(500).json({
-        success: false,
-        error: "Internal server error",
-      });
-    }
-  },
+    res.json(response);
+  }),
 
   // POST /api/employees
-  async createEmployee(req: Request, res: Response) {
-    try {
-      const employeeData: CreateEmployeeRequest = req.body;
-      const userRole = req.user?.role;
+  createEmployee: catchAsync(async (req: Request, res: Response) => {
+    const employeeData: CreateEmployeeRequest = req.body;
+    const userRole = req.user!.role;
 
-      if (!userRole) {
-        return res.status(401).json({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
+    const employee = await EmployeeService.createEmployee(employeeData, userRole);
 
-      const employee = await EmployeeService.createEmployee(employeeData, userRole);
+    const response: ApiResponse<EmployeeResponse> = {
+      success: true,
+      data: employee,
+      message: "Employee created successfully",
+    };
 
-      const response: ApiResponse<EmployeeResponse> = {
-        success: true,
-        data: employee,
-        message: "Employee created successfully",
-      };
-
-      res.status(201).json(response);
-    } catch (error) {
-      console.error("Error creating employee:", error);
-      if (error instanceof Error) {
-        return res.status(400).json({
-          success: false,
-          error: error.message,
-        });
-      }
-      res.status(500).json({
-        success: false,
-        error: "Internal server error",
-      });
-    }
-  },
+    res.status(201).json(response);
+  }),
 
   // PUT /api/employees/:id
-  async updateEmployee(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const updateData: UpdateEmployeeRequest = req.body;
+  updateEmployee: catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const updateData: UpdateEmployeeRequest = req.body;
+    const userRole = req.user!.role;
+    const currentUserId = req.user!.userId;
 
-      const employee = await EmployeeService.updateEmployee(
-        id,
-        updateData,
-        req.user?.role,
-        req.user?.userId
-      );
+    const employee = await EmployeeService.updateEmployee(
+      id,
+      updateData,
+      userRole,
+      currentUserId
+    );
 
-      const response: ApiResponse<EmployeeResponse> = {
-        success: true,
-        data: employee,
-        message: "Employee updated successfully",
-      };
+    const response: ApiResponse<EmployeeResponse> = {
+      success: true,
+      data: employee,
+      message: "Employee updated successfully",
+    };
 
-      res.json(response);
-    } catch (error) {
-      console.error("Error updating employee:", error);
-      if (error instanceof Error && error.message === "Employee not found") {
-        return res.status(404).json({
-          success: false,
-          error: error.message,
-        });
-      }
-      res.status(500).json({
-        success: false,
-        error: "Internal server error",
-      });
-    }
-  },
+    res.json(response);
+  }),
 
   // DELETE /api/employees/:id
-  async deleteEmployee(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
+  deleteEmployee: catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
 
-      await EmployeeService.deleteEmployee(id);
+    await EmployeeService.deleteEmployee(id);
 
-      const response: ApiResponse = {
-        success: true,
-        message: "Employee deleted successfully",
-      };
+    const response: ApiResponse = {
+      success: true,
+      message: "Employee deleted successfully",
+    };
 
-      res.json(response);
-    } catch (error) {
-      console.error("Error deleting employee:", error);
-      if (error instanceof Error && error.message === "Employee not found") {
-        return res.status(404).json({
-          success: false,
-          error: error.message,
-        });
-      }
-      res.status(500).json({
-        success: false,
-        error: "Internal server error",
-      });
-    }
-  },
+    res.json(response);
+  }),
 };
