@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { scheduleController } from './schedule.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireManager } from '../../middleware/auth.middleware';
 import { validateRequest } from '../../middleware/validation.middleware';
 import {
   CreateScheduleRequestSchema,
@@ -38,15 +38,7 @@ router.get('/:id', scheduleController.getScheduleById);
 // POST /api/schedules/bulk - Bulk create schedules (ADMIN & MANAGER only)
 router.post(
   '/bulk',
-  (req, res, next) => {
-    if (req.user?.role === 'EMPLOYEE') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators and managers can bulk create schedules'
-      });
-    }
-    next();
-  },
+  requireManager,
   validateRequest(BulkCreateScheduleRequestSchema),
   scheduleController.bulkCreateSchedules
 );
@@ -54,15 +46,7 @@ router.post(
 // POST /api/schedules - Create schedule (ADMIN & MANAGER only)
 router.post(
   '/',
-  (req, res, next) => {
-    if (req.user?.role === 'EMPLOYEE') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators and managers can create schedules'
-      });
-    }
-    next();
-  },
+  requireManager,
   validateRequest(CreateScheduleRequestSchema),
   scheduleController.createSchedule
 );
@@ -70,15 +54,7 @@ router.post(
 // PUT /api/schedules/:id - Update schedule (ADMIN & MANAGER only)
 router.put(
   '/:id',
-  (req, res, next) => {
-    if (req.user?.role === 'EMPLOYEE') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators and managers can update schedules'
-      });
-    }
-    next();
-  },
+  requireManager,
   validateRequest(UpdateScheduleRequestSchema),
   scheduleController.updateSchedule
 );
@@ -86,15 +62,7 @@ router.put(
 // DELETE /api/schedules/:id - Delete schedule (ADMIN & MANAGER only)
 router.delete(
   '/:id',
-  (req, res, next) => {
-    if (req.user?.role === 'EMPLOYEE') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators and managers can delete schedules'
-      });
-    }
-    next();
-  },
+  requireManager,
   scheduleController.deleteSchedule
 );
 

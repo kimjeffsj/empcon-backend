@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { departmentController } from './department.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireAdmin } from '../../middleware/auth.middleware';
 import { validateRequest } from '../../middleware/validation.middleware';
 import {
   createDepartmentSchema,
@@ -21,15 +21,7 @@ router.get('/:id', departmentController.getDepartmentById);
 // POST /api/departments - Create new department (ADMIN only)
 router.post(
   '/',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators can create departments'
-      });
-    }
-    next();
-  },
+  requireAdmin,
   validateRequest(createDepartmentSchema),
   departmentController.createDepartment
 );
@@ -37,15 +29,7 @@ router.post(
 // PUT /api/departments/:id - Update department (ADMIN only)
 router.put(
   '/:id',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators can update departments'
-      });
-    }
-    next();
-  },
+  requireAdmin,
   validateRequest(updateDepartmentSchema),
   departmentController.updateDepartment
 );
@@ -53,15 +37,7 @@ router.put(
 // DELETE /api/departments/:id - Delete department (ADMIN only)
 router.delete(
   '/:id',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators can delete departments'
-      });
-    }
-    next();
-  },
+  requireAdmin,
   departmentController.deleteDepartment
 );
 

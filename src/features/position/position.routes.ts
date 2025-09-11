@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { positionController } from './position.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireAdmin } from '../../middleware/auth.middleware';
 import { validateRequest } from '../../middleware/validation.middleware';
 import {
   createPositionSchema,
@@ -21,15 +21,7 @@ router.get('/:id', positionController.getPositionById);
 // POST /api/positions - Create new position (ADMIN only)
 router.post(
   '/',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators can create positions'
-      });
-    }
-    next();
-  },
+  requireAdmin,
   validateRequest(createPositionSchema),
   positionController.createPosition
 );
@@ -37,15 +29,7 @@ router.post(
 // PUT /api/positions/:id - Update position (ADMIN only)
 router.put(
   '/:id',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators can update positions'
-      });
-    }
-    next();
-  },
+  requireAdmin,
   validateRequest(updatePositionSchema),
   positionController.updatePosition
 );
@@ -53,15 +37,7 @@ router.put(
 // DELETE /api/positions/:id - Delete position (ADMIN only)
 router.delete(
   '/:id',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators can delete positions'
-      });
-    }
-    next();
-  },
+  requireAdmin,
   positionController.deletePosition
 );
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { employeeController } from './employee.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireManager, requireAdmin } from '../../middleware/auth.middleware';
 import { validateRequest } from '../../middleware/validation.middleware';
 import {
   createEmployeeSchema,
@@ -32,34 +32,18 @@ router.get('/:id', employeeController.getEmployeeById);
 // GET /api/employees/:id/sin - Get employee SIN (ADMIN & MANAGER only)
 router.get('/:id/sin', employeeController.getEmployeeSIN);
 
-// POST /api/employees - Create new employee (ADMIN only)
+// POST /api/employees - Create new employee (ADMIN & MANAGER only)
 router.post(
   '/',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'MANAGER') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators and managers can create employees'
-      });
-    }
-    next();
-  },
+  requireManager,
   validateRequest(createEmployeeSchema),
   employeeController.createEmployee
 );
 
-// PUT /api/employees/:id - Update employee (ADMIN only)
+// PUT /api/employees/:id - Update employee (ADMIN & MANAGER only)
 router.put(
   '/:id',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'MANAGER') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators and managers can update employees'
-      });
-    }
-    next();
-  },
+  requireManager,
   validateRequest(updateEmployeeSchema),
   employeeController.updateEmployee
 );
@@ -67,15 +51,7 @@ router.put(
 // DELETE /api/employees/:id - Delete employee (ADMIN only)
 router.delete(
   '/:id',
-  (req, res, next) => {
-    if (req.user?.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only administrators can delete employees'
-      });
-    }
-    next();
-  },
+  requireAdmin,
   employeeController.deleteEmployee
 );
 
