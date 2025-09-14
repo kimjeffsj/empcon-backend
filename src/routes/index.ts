@@ -5,6 +5,7 @@ import employeeRoutes from "../features/employee/employee.routes";
 import departmentRoutes from "../features/department/department.routes";
 import positionRoutes from "../features/position/position.routes";
 import scheduleRoutes from "../features/schedule/schedule.routes";
+import timeClockRoutes from "../features/timeclock/timeClock.routes";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use("/employees", employeeRoutes);
 router.use("/departments", departmentRoutes);
 router.use("/positions", positionRoutes);
 router.use("/schedules", scheduleRoutes);
+router.use("/timeclock", timeClockRoutes);
 
 export default router;
