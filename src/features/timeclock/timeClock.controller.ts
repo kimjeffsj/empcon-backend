@@ -7,7 +7,6 @@ import {
   ClockStatusRequest,
   GetTimeEntriesParams,
   TimeAdjustmentRequest,
-  TodayClockStatusRequest,
   ApiResponse,
 } from "@empcon/types";
 
@@ -161,30 +160,6 @@ export const timeClockController = {
     });
   }),
   
-  // GET /api/timeclock/today-status - Today's clock status for all employees (Admin dashboard)
-  getTodayClockStatus: catchAsync(async (req: Request, res: Response) => {
-    const { date } = req.query;
-    const userRole = req.user!.role;
-    
-    // Only Admin/Manager can view all employees' status
-    if (!["ADMIN", "MANAGER"].includes(userRole)) {
-      return res.status(403).json({
-        success: false,
-        error: "Only administrators and managers can view all employees' clock status",
-      });
-    }
-    
-    const todayClockStatusRequest: TodayClockStatusRequest = {
-      date: date as string,
-    };
-    
-    const result = await TimeClockService.getTodayClockStatus(todayClockStatusRequest);
-    
-    res.json({
-      success: true,
-      data: result,
-    });
-  }),
   
   // GET /api/timeclock/test-rounding - Test payroll rounding logic (Development only)
   testRounding: catchAsync(async (req: Request, res: Response) => {

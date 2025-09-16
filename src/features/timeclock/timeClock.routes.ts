@@ -8,7 +8,6 @@ import {
   ClockStatusRequestSchema,
   GetTimeEntriesParamsSchema,
   TimeAdjustmentRequestSchema,
-  TodayClockStatusRequestSchema,
   TimeEntryIdParamSchema,
   EmployeeIdParamSchema,
 } from '@empcon/types';
@@ -65,12 +64,5 @@ router.put(
   timeClockController.adjustTimeEntry
 );
 
-// GET /api/timeclock/today-status - Today's clock status for all employees (Admin dashboard)
-router.get(
-  '/today-status',
-  requireManager,
-  validateRequest(TodayClockStatusRequestSchema, 'query'),
-  timeClockController.getTodayClockStatus
-);
 
 export default router;
