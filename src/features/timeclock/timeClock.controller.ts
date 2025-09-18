@@ -159,8 +159,18 @@ export const timeClockController = {
       message: result.message,
     });
   }),
-  
-  
+
+  // GET /api/timeclock/today-entries - Get today's time entries for dashboard
+  getTodayTimeEntries: catchAsync(async (_req: Request, res: Response) => {
+    const result = await TimeClockService.getTodayTimeEntries();
+
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+    });
+  }),
+
   // GET /api/timeclock/test-rounding - Test payroll rounding logic (Development only)
   testRounding: catchAsync(async (req: Request, res: Response) => {
     // Only available in development environment

@@ -6,6 +6,7 @@ import {
   ClockInRequestSchema,
   ClockOutRequestSchema,
   ClockStatusRequestSchema,
+  ClockStatusQuerySchema,
   GetTimeEntriesParamsSchema,
   TimeAdjustmentRequestSchema,
   TimeEntryIdParamSchema,
@@ -44,7 +45,7 @@ router.post(
 router.get(
   '/status/:employeeId',
   validateRequest(EmployeeIdParamSchema, 'params'),
-  validateRequest(ClockStatusRequestSchema, 'query'),
+  validateRequest(ClockStatusQuerySchema, 'query'),
   timeClockController.getClockStatus
 );
 
@@ -54,6 +55,9 @@ router.get(
   validateRequest(GetTimeEntriesParamsSchema, 'query'),
   timeClockController.getTimeEntries
 );
+
+// GET /api/timeclock/today-entries - Get today's time entries for dashboard
+router.get('/today-entries', timeClockController.getTodayTimeEntries);
 
 // PUT /api/timeclock/entries/:id - Manual time adjustment (Admin/Manager only)
 router.put(

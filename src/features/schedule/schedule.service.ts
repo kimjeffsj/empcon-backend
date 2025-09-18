@@ -12,22 +12,11 @@ import {
   TodayRosterResponse,
   GracePeriodResult,
 } from "@empcon/types";
+import { DateTimeUtils } from "@/utils/dateTime.utils";
 
 const prisma = new PrismaClient();
 
 export class ScheduleService {
-  // Time utilities for UTC/Local conversion
-  static combineDateTime(dateStr: string, timeStr: string): Date {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date(dateStr);
-    date.setUTCHours(hours, minutes, 0, 0);
-    return date;
-  }
-
-  static toUTCDateTime(dateTimeStr: string): Date {
-    return new Date(dateTimeStr);
-  }
-
   // Grace Period logic (for future TimeEntry integration)
   static applyGracePeriod(
     scheduledTime: Date,
@@ -101,9 +90,16 @@ export class ScheduleService {
 
     const conflicts = conflictingSchedules.map((schedule) => {
       // Calculate overlap in minutes
-      const overlapStart = new Date(Math.max(startDateTime.getTime(), schedule.startTime.getTime()));
-      const overlapEnd = new Date(Math.min(endDateTime.getTime(), schedule.endTime.getTime()));
-      const overlapMinutes = Math.max(0, (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60));
+      const overlapStart = new Date(
+        Math.max(startDateTime.getTime(), schedule.startTime.getTime())
+      );
+      const overlapEnd = new Date(
+        Math.min(endDateTime.getTime(), schedule.endTime.getTime())
+      );
+      const overlapMinutes = Math.max(
+        0,
+        (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60)
+      );
 
       return {
         id: schedule.id,
@@ -134,17 +130,21 @@ export class ScheduleService {
       createdBy: schedule.createdBy,
       createdAt: schedule.createdAt,
       updatedAt: schedule.updatedAt,
-      employee: schedule.employee ? {
-        id: schedule.employee.id,
-        firstName: schedule.employee.firstName ?? undefined,
-        lastName: schedule.employee.lastName ?? undefined,
-        employeeNumber: schedule.employee.employeeNumber ?? undefined,
-      } : undefined,
-      creator: schedule.creator ? {
-        id: schedule.creator.id,
-        firstName: schedule.creator.firstName ?? undefined,
-        lastName: schedule.creator.lastName ?? undefined,
-      } : undefined,
+      employee: schedule.employee
+        ? {
+            id: schedule.employee.id,
+            firstName: schedule.employee.firstName ?? undefined,
+            lastName: schedule.employee.lastName ?? undefined,
+            employeeNumber: schedule.employee.employeeNumber ?? undefined,
+          }
+        : undefined,
+      creator: schedule.creator
+        ? {
+            id: schedule.creator.id,
+            firstName: schedule.creator.firstName ?? undefined,
+            lastName: schedule.creator.lastName ?? undefined,
+          }
+        : undefined,
     };
   }
 
@@ -182,20 +182,23 @@ export class ScheduleService {
 
     // Date range filtering
     if (startDate && endDate) {
-      const startDateTime = new Date(startDate);
-      const endDateTime = new Date(endDate);
-      endDateTime.setUTCHours(23, 59, 59, 999); // End of day
+      const { startOfDay } = DateTimeUtils.setUTCDayBoundaries(
+        new Date(startDate)
+      );
+      const { endOfDay } = DateTimeUtils.setUTCDayBoundaries(new Date(endDate));
 
       where.AND = [
-        { startTime: { gte: startDateTime } },
-        { startTime: { lte: endDateTime } },
+        { startTime: { gte: startOfDay } },
+        { startTime: { lte: endOfDay } },
       ];
     } else if (startDate) {
-      where.startTime = { gte: new Date(startDate) };
+      const { startOfDay } = DateTimeUtils.setUTCDayBoundaries(
+        new Date(startDate)
+      );
+      where.startTime = { gte: startOfDay };
     } else if (endDate) {
-      const endDateTime = new Date(endDate);
-      endDateTime.setUTCHours(23, 59, 59, 999);
-      where.startTime = { lte: endDateTime };
+      const { endOfDay } = DateTimeUtils.setUTCDayBoundaries(new Date(endDate));
+      where.startTime = { lte: endOfDay };
     }
 
     if (status) {
@@ -208,7 +211,7 @@ export class ScheduleService {
         where,
         skip,
         take: Number(limit),
-        orderBy: { startTime: 'asc' },
+        orderBy: { startTime: "asc" },
         include: {
           employee: {
             select: {
@@ -278,8 +281,8 @@ export class ScheduleService {
     data: CreateScheduleRequest,
     createdBy: string
   ): Promise<Schedule> {
-    const startTime = this.toUTCDateTime(data.startTime);
-    const endTime = this.toUTCDateTime(data.endTime);
+    const startTime = DateTimeUtils.toUTCDateTime(data.startTime);
+    const endTime = DateTimeUtils.toUTCDateTime(data.endTime);
 
     // Check for conflicts
     const conflictCheck = await this.checkScheduleConflicts({
@@ -289,7 +292,9 @@ export class ScheduleService {
     });
 
     if (conflictCheck.hasConflict) {
-      throw new Error(`Schedule conflict detected: ${conflictCheck.conflictingSchedules.length} overlapping schedule(s)`);
+      throw new Error(
+        `Schedule conflict detected: ${conflictCheck.conflictingSchedules.length} overlapping schedule(s)`
+      );
     }
 
     // Verify employee exists
@@ -356,10 +361,10 @@ export class ScheduleService {
     const updateData: any = {};
 
     if (data.startTime !== undefined) {
-      updateData.startTime = this.toUTCDateTime(data.startTime);
+      updateData.startTime = DateTimeUtils.toUTCDateTime(data.startTime);
     }
     if (data.endTime !== undefined) {
-      updateData.endTime = this.toUTCDateTime(data.endTime);
+      updateData.endTime = DateTimeUtils.toUTCDateTime(data.endTime);
     }
     if (data.breakDuration !== undefined) {
       updateData.breakDuration = data.breakDuration;
@@ -379,7 +384,8 @@ export class ScheduleService {
 
     // Check for conflicts if time is being updated
     if (data.startTime || data.endTime) {
-      const startTime = data.startTime || existingSchedule.startTime.toISOString();
+      const startTime =
+        data.startTime || existingSchedule.startTime.toISOString();
       const endTime = data.endTime || existingSchedule.endTime.toISOString();
 
       const conflictCheck = await this.checkScheduleConflicts({
@@ -390,7 +396,9 @@ export class ScheduleService {
       });
 
       if (conflictCheck.hasConflict) {
-        throw new Error(`Schedule conflict detected: ${conflictCheck.conflictingSchedules.length} overlapping schedule(s)`);
+        throw new Error(
+          `Schedule conflict detected: ${conflictCheck.conflictingSchedules.length} overlapping schedule(s)`
+        );
       }
     }
 
@@ -449,8 +457,14 @@ export class ScheduleService {
     for (const scheduleData of schedules) {
       try {
         // Combine date with time
-        const startDateTime = this.combineDateTime(date, scheduleData.startTime);
-        const endDateTime = this.combineDateTime(date, scheduleData.endTime);
+        const startDateTime = DateTimeUtils.combineDateTime(
+          date,
+          scheduleData.startTime
+        );
+        const endDateTime = DateTimeUtils.combineDateTime(
+          date,
+          scheduleData.endTime
+        );
 
         // Handle next-day shifts (e.g., 23:00 to 07:00)
         if (endDateTime <= startDateTime) {
@@ -473,7 +487,7 @@ export class ScheduleService {
       } catch (error) {
         errors.push({
           employeeId: scheduleData.employeeId,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }
@@ -484,10 +498,7 @@ export class ScheduleService {
   // Get today's roster for dashboard
   static async getTodayRoster(): Promise<TodayRosterResponse> {
     const today = new Date();
-    const startOfDay = new Date(today);
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    const { startOfDay, endOfDay } = DateTimeUtils.setUTCDayBoundaries(today);
 
     const schedules = await prisma.schedule.findMany({
       where: {
@@ -507,7 +518,7 @@ export class ScheduleService {
           },
         },
       },
-      orderBy: { startTime: 'asc' },
+      orderBy: { startTime: "asc" },
     });
 
     const currentTime = new Date();
@@ -524,11 +535,12 @@ export class ScheduleService {
       endTime: schedule.endTime.toISOString(),
       position: schedule.position ?? undefined,
       status: schedule.status,
-      isCurrentlyWorking: currentTime >= schedule.startTime && currentTime <= schedule.endTime,
+      isCurrentlyWorking:
+        currentTime >= schedule.startTime && currentTime <= schedule.endTime,
     }));
 
     return {
-      date: startOfDay.toISOString().split('T')[0],
+      date: startOfDay.toISOString().split("T")[0],
       totalScheduled: schedules.length,
       schedules: rosterSchedules,
     };
