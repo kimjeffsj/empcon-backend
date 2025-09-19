@@ -537,18 +537,24 @@ export class TimeClockService {
       );
       const { endOfDay } = DateTimeUtils.setUTCDayBoundaries(new Date(endDate));
 
-      where.clockInTime = {
-        gte: startOfDay,
-        lte: endOfDay,
+      where.schedule = {
+        startTime: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
       };
     } else if (startDate) {
       const { startOfDay } = DateTimeUtils.setUTCDayBoundaries(
         new Date(startDate)
       );
-      where.clockInTime = { gte: startOfDay };
+      where.schedule = {
+        startTime: { gte: startOfDay },
+      };
     } else if (endDate) {
       const { endOfDay } = DateTimeUtils.setUTCDayBoundaries(new Date(endDate));
-      where.clockInTime = { lte: endOfDay };
+      where.schedule = {
+        startTime: { lte: endOfDay },
+      };
     }
 
     if (status) {
@@ -806,9 +812,11 @@ export class TimeClockService {
 
     const timeEntries = await prisma.timeEntry.findMany({
       where: {
-        clockInTime: {
-          gte: startOfDay,
-          lte: endOfDay,
+        schedule: {
+          startTime: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
         },
       },
       include: {
@@ -830,11 +838,11 @@ export class TimeClockService {
         },
       },
       orderBy: {
-        clockInTime: 'desc',
+        clockInTime: "desc",
       },
     });
 
-    const formattedEntries = timeEntries.map(entry =>
+    const formattedEntries = timeEntries.map((entry) =>
       this.formatTimeEntryResponse(entry)
     );
 
