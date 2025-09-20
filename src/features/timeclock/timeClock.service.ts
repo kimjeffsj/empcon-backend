@@ -766,16 +766,16 @@ export class TimeClockService {
       id: timeEntry.id,
       employeeId: timeEntry.employeeId,
       scheduleId: timeEntry.scheduleId,
-      clockInTime: timeEntry.clockInTime.toISOString(),
-      clockOutTime: timeEntry.clockOutTime?.toISOString(),
+      clockInTime: timeEntry.clockInTime,
+      clockOutTime: timeEntry.clockOutTime,
       clockInLocation: timeEntry.clockInLocation,
       clockOutLocation: timeEntry.clockOutLocation,
       clockInIp: timeEntry.clockInIp,
       clockOutIp: timeEntry.clockOutIp,
-      scheduledStartTime: timeEntry.scheduledStartTime?.toISOString(),
-      scheduledEndTime: timeEntry.scheduledEndTime?.toISOString(),
-      adjustedStartTime: timeEntry.adjustedStartTime?.toISOString(),
-      adjustedEndTime: timeEntry.adjustedEndTime?.toISOString(),
+      scheduledStartTime: timeEntry.scheduledStartTime,
+      scheduledEndTime: timeEntry.scheduledEndTime,
+      adjustedStartTime: timeEntry.adjustedStartTime,
+      adjustedEndTime: timeEntry.adjustedEndTime,
       gracePeriodApplied: timeEntry.gracePeriodApplied,
       totalHours: timeEntry.totalHours
         ? Number(timeEntry.totalHours)
@@ -784,8 +784,8 @@ export class TimeClockService {
         ? Number(timeEntry.overtimeHours)
         : undefined,
       status: timeEntry.status,
-      createdAt: timeEntry.createdAt.toISOString(),
-      updatedAt: timeEntry.updatedAt.toISOString(),
+      createdAt: timeEntry.createdAt,
+      updatedAt: timeEntry.updatedAt,
       employee: timeEntry.employee
         ? {
             id: timeEntry.employee.id,
@@ -797,8 +797,8 @@ export class TimeClockService {
       schedule: timeEntry.schedule
         ? {
             id: timeEntry.schedule.id,
-            startTime: timeEntry.schedule.startTime.toISOString(),
-            endTime: timeEntry.schedule.endTime.toISOString(),
+            startTime: timeEntry.schedule.startTime,
+            endTime: timeEntry.schedule.endTime,
             position: timeEntry.schedule.position ?? undefined,
           }
         : undefined,
