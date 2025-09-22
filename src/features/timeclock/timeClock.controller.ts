@@ -35,12 +35,14 @@ export const timeClockController = {
     const clientIp = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] as string;
     
     const result = await TimeClockService.clockIn(clockInRequest, clientIp);
-    
-    res.status(201).json({
+
+    const response: ApiResponse<typeof result> = {
       success: true,
       data: result,
       message: result.message,
-    });
+    };
+
+    res.status(201).json(response);
   }),
   
   // POST /api/timeclock/clock-out - Employee clock-out
@@ -58,12 +60,14 @@ export const timeClockController = {
     const clientIp = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] as string;
     
     const result = await TimeClockService.clockOut(clockOutRequest, clientIp, currentUserId, userRole);
-    
-    res.json({
+
+    const response: ApiResponse<typeof result> = {
       success: true,
       data: result,
       message: result.message,
-    });
+    };
+
+    res.json(response);
   }),
   
   // GET /api/timeclock/status/:employeeId - Current clock status
@@ -87,11 +91,13 @@ export const timeClockController = {
     };
     
     const result = await TimeClockService.getClockStatus(clockStatusRequest);
-    
-    res.json({
+
+    const response: ApiResponse<typeof result> = {
       success: true,
       data: result,
-    });
+    };
+
+    res.json(response);
   }),
   
   // GET /api/timeclock/entries - Get time entries with filtering
@@ -120,7 +126,7 @@ export const timeClockController = {
     };
     
     const result = await TimeClockService.getTimeEntries(params, userRole, currentUserId);
-    
+
     res.json({
       success: true,
       data: result.data,
@@ -152,12 +158,14 @@ export const timeClockController = {
     };
     
     const result = await TimeClockService.adjustTimeEntry(adjustmentRequest);
-    
-    res.json({
+
+    const response: ApiResponse<typeof result> = {
       success: true,
       data: result,
       message: result.message,
-    });
+    };
+
+    res.json(response);
   }),
 
   // GET /api/timeclock/today-entries - Get today's time entries for dashboard
@@ -192,12 +200,14 @@ export const timeClockController = {
     try {
       const testTime = new Date(time as string);
       const result = TimeClockService.applyPayrollRounding(testTime);
-      
-      res.json({
+
+      const response: ApiResponse<typeof result> = {
         success: true,
         data: result,
         message: "Payroll rounding test completed",
-      });
+      };
+
+      res.json(response);
     } catch (error) {
       return res.status(400).json({
         success: false,
@@ -230,12 +240,14 @@ export const timeClockController = {
       const gracePeriod = gracePeriodMinutes ? parseInt(gracePeriodMinutes as string) : undefined;
       
       const result = TimeClockService.applyGracePeriod(actual, scheduled, gracePeriod);
-      
-      res.json({
+
+      const response: ApiResponse<typeof result> = {
         success: true,
         data: result,
         message: "Grace period test completed",
-      });
+      };
+
+      res.json(response);
     } catch (error) {
       return res.status(400).json({
         success: false,

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon -r tsconfig-paths/register src/server.ts",
-    "build": "tsc",
+    "build": "echo '🔧 Building backend...' && tsc && echo '✅ Backend build complete!'",
     "start": "node dist/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -24,7 +24,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@empcon/types": "^1.4.8",
+    "@empcon/types": "^1.5.0",
     "@prisma/client": "^6.14.0",
     "@types/ms": "^2.1.0",
     "bcryptjs": "^3.0.2",

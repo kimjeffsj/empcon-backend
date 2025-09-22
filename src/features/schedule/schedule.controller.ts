@@ -2,12 +2,12 @@ import { Request, Response } from "express";
 import { ScheduleService } from "./schedule.service";
 import { catchAsync } from "../../middleware/errorHandler.middleware";
 import {
+  ApiResponse,
   CreateScheduleRequest,
   UpdateScheduleRequest,
   BulkCreateScheduleRequest,
   GetSchedulesParams,
   ConflictCheckRequest,
-  ApiResponse,
 } from "@empcon/types";
 
 export const scheduleController = {
@@ -29,46 +29,56 @@ export const scheduleController = {
       excludeScheduleId: excludeScheduleId as string | undefined,
     };
 
-    const result = await ScheduleService.checkScheduleConflicts(conflictRequest);
+    const result = await ScheduleService.checkScheduleConflicts(
+      conflictRequest
+    );
 
-    res.json({
+    const response: ApiResponse<typeof result> = {
       success: true,
       data: result,
-    });
+    };
+
+    res.json(response);
   }),
 
   // GET /api/schedules/today-roster - Get today's schedule roster for dashboard
   getTodayRoster: catchAsync(async (req: Request, res: Response) => {
     const roster = await ScheduleService.getTodayRoster();
 
-    res.json({
+    const response: ApiResponse<typeof roster> = {
       success: true,
       data: roster,
-    });
+    };
+
+    res.json(response);
   }),
 
   // GET /api/schedules - Get schedules with filtering and pagination
   getSchedules: catchAsync(async (req: Request, res: Response) => {
-      const userRole = req.user!.role;
-      const currentUserId = req.user!.userId;
+    const userRole = req.user!.role;
+    const currentUserId = req.user!.userId;
 
-      const queryParams: GetSchedulesParams = {
-        employeeId: req.query.employeeId as string | undefined,
-        startDate: req.query.startDate as string | undefined,
-        endDate: req.query.endDate as string | undefined,
-        status: req.query.status as any | undefined,
-        includeInactive: req.query.includeInactive === 'true',
-        page: req.query.page ? parseInt(req.query.page as string) : 1,
-        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
-      };
+    const queryParams: GetSchedulesParams = {
+      employeeId: req.query.employeeId as string | undefined,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+      status: req.query.status as any | undefined,
+      includeInactive: req.query.includeInactive === "true",
+      page: req.query.page ? parseInt(req.query.page as string) : 1,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+    };
 
-      const result = await ScheduleService.getSchedules(queryParams, userRole, currentUserId);
+    const result = await ScheduleService.getSchedules(
+      queryParams,
+      userRole,
+      currentUserId
+    );
 
-      res.json({
-        success: true,
-        data: result.data,
-        pagination: result.pagination,
-      });
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+    });
   }),
 
   // GET /api/schedules/:id - Get schedule by ID
@@ -87,10 +97,12 @@ export const scheduleController = {
       });
     }
 
-    res.json({
+    const response: ApiResponse<typeof schedule> = {
       success: true,
       data: schedule,
-    });
+    };
+
+    res.json(response);
   }),
 
   // POST /api/schedules - Create schedule
@@ -98,13 +110,18 @@ export const scheduleController = {
     const currentUserId = req.user!.userId;
 
     const scheduleData = req.body as CreateScheduleRequest;
-    const schedule = await ScheduleService.createSchedule(scheduleData, currentUserId);
+    const schedule = await ScheduleService.createSchedule(
+      scheduleData,
+      currentUserId
+    );
 
-    res.status(201).json({
+    const response: ApiResponse<typeof schedule> = {
       success: true,
       data: schedule,
       message: "Schedule created successfully",
-    });
+    };
+
+    res.status(201).json(response);
   }),
 
   // PUT /api/schedules/:id - Update schedule
@@ -113,11 +130,13 @@ export const scheduleController = {
     const updateData = req.body as UpdateScheduleRequest;
     const schedule = await ScheduleService.updateSchedule(id, updateData);
 
-    res.json({
+    const response: ApiResponse<typeof schedule> = {
       success: true,
       data: schedule,
       message: "Schedule updated successfully",
-    });
+    };
+
+    res.json(response);
   }),
 
   // DELETE /api/schedules/:id - Delete (soft delete) schedule
@@ -125,10 +144,13 @@ export const scheduleController = {
     const { id } = req.params;
     await ScheduleService.deleteSchedule(id);
 
-    res.json({
+    const response: ApiResponse<null> = {
       success: true,
       message: "Schedule deleted successfully",
-    });
+      data: null,
+    };
+
+    res.json(response);
   }),
 
   // POST /api/schedules/bulk - Bulk create schedules
@@ -136,17 +158,23 @@ export const scheduleController = {
     const currentUserId = req.user!.userId;
 
     const bulkData = req.body as BulkCreateScheduleRequest;
-    const result = await ScheduleService.bulkCreateSchedules(bulkData, currentUserId);
+    const result = await ScheduleService.bulkCreateSchedules(
+      bulkData,
+      currentUserId
+    );
 
     // Return 207 Multi-Status if there are partial errors
     const statusCode = result.errors.length > 0 ? 207 : 201;
 
-    res.status(statusCode).json({
+    const response: ApiResponse<typeof result> = {
       success: result.errors.length === 0,
       data: result,
-      message: result.errors.length === 0 
-        ? "All schedules created successfully"
-        : `${result.created.length} schedules created, ${result.errors.length} failed`,
-    });
+      message:
+        result.errors.length === 0
+          ? "All schedules created successfully"
+          : `${result.created.length} schedules created, ${result.errors.length} failed`,
+    };
+
+    res.status(statusCode).json(response);
   }),
 };
