@@ -290,6 +290,118 @@ export class PayPeriodService {
   }
 
   /**
+   * Get current date in Pacific Time
+   * Returns year, month, day as numbers for business logic
+   */
+  static getPacificTimeToday(): { year: number; month: number; day: number } {
+    const now = new Date();
+    const pacificFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Vancouver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+
+    const parts = pacificFormatter.formatToParts(now);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0');
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+
+    return { year, month, day };
+  }
+
+  /**
+   * Check if completed pay period can be generated today (Pacific Time)
+   * Returns generation info or null if cannot generate
+   */
+  static canGenerateCompletedPeriod(): {
+    canGenerate: boolean;
+    reason: string;
+    periodInfo?: {
+      year: number;
+      month: number;
+      period: 'A' | 'B';
+      description: string;
+    };
+  } {
+    const pacificToday = this.getPacificTimeToday();
+    const { year, month, day } = pacificToday;
+
+    if (day === 16) {
+      // 16th of month: Generate A period (1st-15th of current month)
+      return {
+        canGenerate: true,
+        reason: "16th of month - can generate A period for completed 1st-15th period",
+        periodInfo: {
+          year,
+          month,
+          period: 'A',
+          description: `${year}-${String(month).padStart(2, '0')}-A (${year}/${String(month).padStart(2, '0')}/01 - ${year}/${String(month).padStart(2, '0')}/15)`
+        }
+      };
+    } else if (day === 1) {
+      // 1st of month: Generate B period (16th-end of previous month)
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+      const lastDay = new Date(prevYear, prevMonth, 0).getDate(); // Last day of previous month
+
+      return {
+        canGenerate: true,
+        reason: "1st of month - can generate B period for completed previous month 16th-end period",
+        periodInfo: {
+          year: prevYear,
+          month: prevMonth,
+          period: 'B',
+          description: `${prevYear}-${String(prevMonth).padStart(2, '0')}-B (${prevYear}/${String(prevMonth).padStart(2, '0')}/16 - ${prevYear}/${String(prevMonth).padStart(2, '0')}/${lastDay})`
+        }
+      };
+    } else {
+      return {
+        canGenerate: false,
+        reason: `Today is ${day}th - can only generate on 16th (A period) or 1st (B period) of month`
+      };
+    }
+  }
+
+  /**
+   * Create PayPeriod for completed work period based on current Pacific Time date
+   * 16th of month → Create A period (1st-15th of current month)
+   * 1st of month → Create B period (16th-end of previous month)
+   */
+  static async createCompletedPeriodPayPeriod(): Promise<CreatePayPeriodResponse> {
+    // Check if generation is allowed
+    const generationCheck = this.canGenerateCompletedPeriod();
+
+    if (!generationCheck.canGenerate) {
+      throw new Error(generationCheck.reason);
+    }
+
+    const { periodInfo } = generationCheck;
+    if (!periodInfo) {
+      throw new Error("Period information is missing");
+    }
+
+    // Use existing createPayPeriod method
+    try {
+      const result = await this.createPayPeriod({
+        year: periodInfo.year,
+        month: periodInfo.month,
+        period: periodInfo.period
+      });
+
+      return {
+        payPeriod: result.payPeriod,
+        message: `Auto-generated ${periodInfo.description} successfully`
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('already exists')) {
+        throw new Error(`${periodInfo.description} already exists - cannot generate duplicate period`);
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Auto-generate upcoming pay periods (utility function)
    */
   static async generateUpcomingPeriods(monthsAhead: number = 3): Promise<PayPeriod[]> {

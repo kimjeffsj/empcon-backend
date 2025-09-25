@@ -40,6 +40,27 @@ router.get(
 // GET /api/payroll/periods/current - Get current pay period info
 router.get("/periods/current", payrollController.getCurrentPayPeriod);
 
+// GET /api/payroll/periods/can-generate - Check if completed period can be generated (Manager only)
+router.get(
+  "/periods/can-generate",
+  requireManager,
+  payrollController.canGenerateCompletedPeriod
+);
+
+// POST /api/payroll/periods/generate-upcoming - Generate upcoming pay periods (Admin only)
+router.post(
+  "/periods/generate-upcoming",
+  requireManager,
+  payrollController.generateUpcomingPeriods
+);
+
+// POST /api/payroll/periods/generate-completed-period - Auto-generate completed period (Manager only)
+router.post(
+  "/periods/generate-completed-period",
+  requireManager,
+  payrollController.generateCompletedPeriod
+);
+
 // GET /api/payroll/periods/:id - Get pay period by ID
 router.get(
   "/periods/:id",
@@ -62,13 +83,6 @@ router.delete(
   requireAdmin,
   validateRequest(PayPeriodIdParamSchema, 'params'),
   payrollController.deletePayPeriod
-);
-
-// POST /api/payroll/periods/generate-upcoming - Generate upcoming pay periods (Admin only)
-router.post(
-  "/periods/generate-upcoming",
-  requireManager,
-  payrollController.generateUpcomingPeriods
 );
 
 // ============= PAYROLL CALCULATION ROUTES =============

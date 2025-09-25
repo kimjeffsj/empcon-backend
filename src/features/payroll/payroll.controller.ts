@@ -42,7 +42,7 @@ export const payrollController = {
   }),
 
   // GET /api/payroll/periods/current - Get current pay period info
-  getCurrentPayPeriod: catchAsync(async (req: Request, res: Response) => {
+  getCurrentPayPeriod: catchAsync(async (_req: Request, res: Response) => {
     const result = await PayPeriodService.getCurrentPayPeriod();
 
     const response: ApiResponse<typeof result> = {
@@ -310,6 +310,31 @@ export const payrollController = {
     const response: ApiResponse<typeof result> = {
       success: true,
       message: `Generated ${result.length} upcoming pay periods`,
+      data: result,
+    };
+
+    res.json(response);
+  }),
+
+  // POST /api/payroll/periods/generate-completed-period - Auto-generate completed period
+  generateCompletedPeriod: catchAsync(async (_req: Request, res: Response) => {
+    const result = await PayPeriodService.createCompletedPeriodPayPeriod();
+
+    const response: ApiResponse<typeof result> = {
+      success: true,
+      message: result.message,
+      data: result,
+    };
+
+    res.status(201).json(response);
+  }),
+
+  // GET /api/payroll/periods/can-generate - Check if completed period can be generated
+  canGenerateCompletedPeriod: catchAsync(async (_req: Request, res: Response) => {
+    const result = PayPeriodService.canGenerateCompletedPeriod();
+
+    const response: ApiResponse<typeof result> = {
+      success: true,
       data: result,
     };
 
