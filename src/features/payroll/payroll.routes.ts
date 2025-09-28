@@ -13,6 +13,8 @@ import {
   PayslipIdParamSchema,
   EmployeePayrollParamsSchema,
   PayrollSummaryQuerySchema,
+  GenerateExcelReportSchema,
+  SendToAccountantSchema,
 } from "@empcon/types";
 
 const router = Router();
@@ -178,6 +180,24 @@ router.post(
   requireManager,
   validateRequest(PayPeriodIdParamSchema, 'params'),
   payrollController.markPayPeriodAsPaid
+);
+
+// ============= REPORTS & EMAIL INTEGRATION ROUTES =============
+
+// POST /api/payroll/reports/generate - Generate Excel payroll report (Manager only)
+router.post(
+  "/reports/generate",
+  requireManager,
+  validateRequest(GenerateExcelReportSchema),
+  payrollController.generatePayrollReport
+);
+
+// POST /api/payroll/email/send-to-accountant - Send payroll report to accountant (Manager only)
+router.post(
+  "/email/send-to-accountant",
+  requireManager,
+  validateRequest(SendToAccountantSchema),
+  payrollController.sendPayrollToAccountant
 );
 
 export default router;

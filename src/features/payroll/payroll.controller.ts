@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { PayPeriodService } from "./payPeriod.service";
 import { PayslipService } from "./payslip.service";
 import { PayrollCalculationService } from "./payrollCalculation.service";
+import { ExcelReportService } from "./excelReport.service";
+import { EmailService } from "./emailService.service";
 import { catchAsync } from "../../middleware/errorHandler.middleware";
 import {
   ApiResponse,
@@ -339,5 +341,54 @@ export const payrollController = {
     };
 
     res.json(response);
+  }),
+
+  // ============= REPORTS & EMAIL INTEGRATION =============
+
+  // POST /api/payroll/reports/generate - Generate Excel payroll report
+  generatePayrollReport: catchAsync(async (req: Request, res: Response) => {
+    const { payPeriodId, format } = req.body;
+
+    const excelBuffer = await ExcelReportService.generatePayrollReport({
+      payPeriodId,
+      format: format || 'excel'
+    });
+
+    // Get pay period info for filename
+    const payPeriod = await PayPeriodService.getPayPeriodSummary(payPeriodId);
+    // Parse period format "2024-01-A" -> year: 2024, month: 01, period: A
+    const [year, month, periodType] = payPeriod.period.split('-');
+    const filename = `Payroll_Report_${year}-${month}_Period${periodType}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.setHeader('Content-Length', excelBuffer.length);
+
+    res.send(excelBuffer);
+  }),
+
+  // POST /api/payroll/email/send-to-accountant - Send payroll report to accountant
+  sendPayrollToAccountant: catchAsync(async (req: Request, res: Response) => {
+    const { payPeriodId, accountantEmail } = req.body;
+
+    const emailLog = await EmailService.sendToAccountant({
+      payPeriodId,
+      accountantEmail
+    });
+
+    if (emailLog.success) {
+      const response: ApiResponse<typeof emailLog> = {
+        success: true,
+        message: `Payroll report successfully sent to ${emailLog.recipientEmail}`,
+        data: emailLog,
+      };
+      res.json(response);
+    } else {
+      res.status(500).json({
+        success: false,
+        error: `Email delivery failed: ${emailLog.error}`,
+        data: emailLog
+      });
+    }
   }),
 };
