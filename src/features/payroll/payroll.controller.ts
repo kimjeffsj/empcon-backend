@@ -362,7 +362,7 @@ export const payrollController = {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
-    res.setHeader('Content-Length', excelBuffer.length);
+    res.setHeader('Content-Length', (excelBuffer as any).length);
 
     res.send(excelBuffer);
   }),
@@ -390,5 +390,69 @@ export const payrollController = {
         data: emailLog
       });
     }
+  }),
+
+  // ============= PAYSLIP FILE MANAGEMENT ENDPOINTS =============
+
+  // POST /api/payroll/periods/:payPeriodId/upload-bulk - Bulk upload payslip files (Manager only)
+  bulkUploadPayslipFiles: catchAsync(async (req: Request, res: Response) => {
+    const { payPeriodId } = req.params;
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No files uploaded'
+      });
+    }
+
+    const result = await PayslipService.bulkUploadPayslipFiles(payPeriodId, files);
+
+    const response: ApiResponse<typeof result> = {
+      success: true,
+      message: `Uploaded ${result.success} payslips successfully. ${result.failed} failed.`,
+      data: result
+    };
+
+    res.json(response);
+  }),
+
+  // GET /api/payroll/payslips/:id/download - Download payslip file
+  downloadPayslipFile: catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const payslip = await PayslipService.getPayslipById(id);
+
+    // Permission check: employees can only download their own payslips
+    if (
+      req.user?.role === 'EMPLOYEE' &&
+      req.user.userId !== payslip.employeeId
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized to download this payslip'
+      });
+    }
+
+    if (!payslip.filePath) {
+      return res.status(404).json({
+        success: false,
+        error: 'Payslip file not available yet'
+      });
+    }
+
+    // Build full file path
+    const fs = require('fs');
+    const path = require('path');
+    const fullPath = path.join(__dirname, '../../../..', payslip.filePath);
+
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'Payslip file does not exist on server'
+      });
+    }
+
+    // Send file for download
+    res.download(fullPath, path.basename(fullPath));
   }),
 };

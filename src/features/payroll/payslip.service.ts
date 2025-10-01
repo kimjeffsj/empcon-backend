@@ -514,4 +514,99 @@ export class PayslipService {
       } : undefined
     };
   }
+
+  /**
+   * Bulk upload payslip files from accountant
+   * Creates new Payslip records with only filePath (calculation fields are null)
+   * Filename format: "Sep A - John Doe.pdf"
+   */
+  static async bulkUploadPayslipFiles(
+    payPeriodId: string,
+    files: Express.Multer.File[]
+  ): Promise<{ success: number; failed: number; errors: string[] }> {
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+
+    for (const file of files) {
+      try {
+        // Parse filename: "Sep A - John Doe.pdf" → "John Doe"
+        const fileName = file.originalname;
+        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, ''); // Remove extension
+        const parts = nameWithoutExt.split(' - '); // Split by " - "
+
+        if (parts.length < 2) {
+          errors.push(`Invalid filename format: ${fileName}. Expected: "Period - First Last.pdf"`);
+          failedCount++;
+          continue;
+        }
+
+        const fullName = parts[1].trim(); // "John Doe"
+        const nameParts = fullName.split(' '); // ["John", "Doe"]
+
+        if (nameParts.length < 2) {
+          errors.push(`Invalid name format in ${fileName}. Expected: "First Last"`);
+          failedCount++;
+          continue;
+        }
+
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' '); // Supports multiple last names
+
+        // Find employee by name (case-insensitive)
+        const employee = await prisma.user.findFirst({
+          where: {
+            firstName: { equals: firstName, mode: 'insensitive' },
+            lastName: { equals: lastName, mode: 'insensitive' },
+            role: 'EMPLOYEE'
+          }
+        });
+
+        if (!employee) {
+          errors.push(`Employee not found: ${firstName} ${lastName} (from ${fileName})`);
+          failedCount++;
+          continue;
+        }
+
+        // Check if Payslip already exists
+        const existingPayslip = await prisma.payslip.findFirst({
+          where: {
+            employeeId: employee.id,
+            payPeriodId
+          }
+        });
+
+        const filePath = `/uploads/payslips/${file.filename}`;
+
+        if (existingPayslip) {
+          // Update existing Payslip with filePath
+          await prisma.payslip.update({
+            where: { id: existingPayslip.id },
+            data: { filePath }
+          });
+        } else {
+          // Create new Payslip with only filePath (calculation fields are null)
+          await prisma.payslip.create({
+            data: {
+              employeeId: employee.id,
+              payPeriodId,
+              filePath,
+              // regularHours, overtimeHours, grossPay, deductions, netPay are null
+            }
+          });
+        }
+
+        successCount++;
+      } catch (error: any) {
+        errors.push(`Failed to process ${file.originalname}: ${error.message}`);
+        failedCount++;
+      }
+    }
+
+    return {
+      success: successCount,
+      failed: failedCount,
+      errors
+    };
+  }
 }

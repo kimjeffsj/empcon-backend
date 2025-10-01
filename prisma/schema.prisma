@@ -29,26 +29,26 @@ model User {
   passwordResetRequired Boolean   @default(false) @map("password_reset_required")
 
   // Employee Information (consolidated from EmployeeProfile)
-  employeeNumber        String?   @unique @map("employee_number")
-  firstName             String?   @map("first_name")
-  lastName              String?   @map("last_name")
-  middleName            String?   @map("middle_name")
-  sinEncrypted          String?   @map("sin_encrypted")
-  addressLine1          String?   @map("address_line1")
-  addressLine2          String?   @map("address_line2")
+  employeeNumber        String?  @unique @map("employee_number")
+  firstName             String?  @map("first_name")
+  lastName              String?  @map("last_name")
+  middleName            String?  @map("middle_name")
+  sinEncrypted          String?  @map("sin_encrypted")
+  addressLine1          String?  @map("address_line1")
+  addressLine2          String?  @map("address_line2")
   city                  String?
   province              String?
-  postalCode            String?   @map("postal_code")
+  postalCode            String?  @map("postal_code")
   phone                 String?
-  dateOfBirth           String?   @map("date_of_birth")
-  hireDate              String?   @map("hire_date")
-  payRate               Decimal?  @map("pay_rate") @db.Decimal(10, 2)
-  payType               PayType?  @map("pay_type")
-  departmentId          String?   @map("department_id")
-  positionId            String?   @map("position_id")
-  managerId             String?   @map("manager_id")
-  emergencyContactName  String?   @map("emergency_contact_name")
-  emergencyContactPhone String?   @map("emergency_contact_phone")
+  dateOfBirth           String?  @map("date_of_birth")
+  hireDate              String?  @map("hire_date")
+  payRate               Decimal? @map("pay_rate") @db.Decimal(10, 2)
+  payType               PayType? @map("pay_type")
+  departmentId          String?  @map("department_id")
+  positionId            String?  @map("position_id")
+  managerId             String?  @map("manager_id")
+  emergencyContactName  String?  @map("emergency_contact_name")
+  emergencyContactPhone String?  @map("emergency_contact_phone")
   notes                 String?
 
   // Relations
@@ -72,7 +72,6 @@ model User {
 
   @@map("users")
 }
-
 
 model Department {
   id          String   @id @default(cuid())
@@ -114,9 +113,9 @@ model Schedule {
   id            String         @id @default(cuid())
   employeeId    String         @map("employee_id")
   startTime     DateTime       @map("start_time") // UTC DateTime - includes date + time
-  endTime       DateTime       @map("end_time")   // UTC DateTime - includes date + time
+  endTime       DateTime       @map("end_time") // UTC DateTime - includes date + time
   breakDuration Int            @default(0) @map("break_duration") // in minutes
-  position      String?        // Optional: specify position for this shift
+  position      String? // Optional: specify position for this shift
   status        ScheduleStatus @default(SCHEDULED)
   notes         String?
   isActive      Boolean        @default(true) @map("is_active")
@@ -139,28 +138,28 @@ model Schedule {
 }
 
 model TimeEntry {
-  id                   String          @id @default(cuid())
-  employeeId           String          @map("employee_id")
-  scheduleId           String?         @map("schedule_id")
-  clockInTime          DateTime        @map("clock_in_time")
-  clockOutTime         DateTime?       @map("clock_out_time")
-  clockInLocation      String?         @map("clock_in_location")
-  clockOutLocation     String?         @map("clock_out_location")
-  clockInIp            String?         @map("clock_in_ip")
-  clockOutIp           String?         @map("clock_out_ip")
-  
+  id               String    @id @default(cuid())
+  employeeId       String    @map("employee_id")
+  scheduleId       String?   @map("schedule_id")
+  clockInTime      DateTime  @map("clock_in_time")
+  clockOutTime     DateTime? @map("clock_out_time")
+  clockInLocation  String?   @map("clock_in_location")
+  clockOutLocation String?   @map("clock_out_location")
+  clockInIp        String?   @map("clock_in_ip")
+  clockOutIp       String?   @map("clock_out_ip")
+
   // Grace Period handling fields
-  scheduledStartTime   DateTime?       @map("scheduled_start_time")  // Original scheduled time
-  scheduledEndTime     DateTime?       @map("scheduled_end_time")    // Original scheduled end time
-  adjustedStartTime    DateTime?       @map("adjusted_start_time")   // Grace period adjusted time
-  adjustedEndTime      DateTime?       @map("adjusted_end_time")     // Grace period adjusted end time
-  gracePeriodApplied   Boolean         @default(false) @map("grace_period_applied")
-  
-  totalHours           Decimal?        @map("total_hours") @db.Decimal(4, 2)
-  overtimeHours        Decimal?        @map("overtime_hours") @db.Decimal(4, 2)
-  status               TimeEntryStatus @default(CLOCKED_IN)
-  createdAt            DateTime        @default(now()) @map("created_at")
-  updatedAt            DateTime        @updatedAt @map("updated_at")
+  scheduledStartTime DateTime? @map("scheduled_start_time") // Original scheduled time
+  scheduledEndTime   DateTime? @map("scheduled_end_time") // Original scheduled end time
+  adjustedStartTime  DateTime? @map("adjusted_start_time") // Grace period adjusted time
+  adjustedEndTime    DateTime? @map("adjusted_end_time") // Grace period adjusted end time
+  gracePeriodApplied Boolean   @default(false) @map("grace_period_applied")
+
+  totalHours    Decimal?        @map("total_hours") @db.Decimal(4, 2)
+  overtimeHours Decimal?        @map("overtime_hours") @db.Decimal(4, 2)
+  status        TimeEntryStatus @default(CLOCKED_IN)
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
 
   // Relations
   employee         User              @relation(fields: [employeeId], references: [id])
@@ -213,11 +212,11 @@ model Payslip {
   id            String   @id @default(cuid())
   employeeId    String   @map("employee_id")
   payPeriodId   String   @map("pay_period_id")
-  regularHours  Decimal  @map("regular_hours") @db.Decimal(6, 2)
-  overtimeHours Decimal  @map("overtime_hours") @db.Decimal(6, 2)
-  grossPay      Decimal  @map("gross_pay") @db.Decimal(10, 2)
-  deductions    Decimal  @map("deductions") @db.Decimal(10, 2)
-  netPay        Decimal  @map("net_pay") @db.Decimal(10, 2)
+  regularHours  Decimal? @map("regular_hours") @db.Decimal(6, 2)
+  overtimeHours Decimal? @map("overtime_hours") @db.Decimal(6, 2)
+  grossPay      Decimal? @map("gross_pay") @db.Decimal(10, 2)
+  deductions    Decimal? @map("deductions") @db.Decimal(10, 2)
+  netPay        Decimal? @map("net_pay") @db.Decimal(10, 2)
   filePath      String?  @map("file_path")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")

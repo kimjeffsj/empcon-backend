@@ -1,161 +1,191 @@
 import ExcelJS from 'exceljs';
 import { PayPeriodService } from './payPeriod.service';
-import { PayslipService } from './payslip.service';
-import { PayrollCalculationService } from './payrollCalculation.service';
+import prisma from '@/config/database.config';
 
 export interface ExcelReportOptions {
   payPeriodId: string;
   format?: 'excel' | 'pdf';
 }
 
+interface PayrollData {
+  employeeNumber: string;
+  firstName: string;
+  lastName: string;
+  regularHours: number;
+  overtimeHours: number;
+  totalHours: number;
+  grossPay: number;
+}
+
 export class ExcelReportService {
-  static async generatePayrollReport(options: ExcelReportOptions): Promise<Buffer> {
+  static async generatePayrollReport(options: ExcelReportOptions) {
     const { payPeriodId } = options;
 
-    // Get pay period data
-    const payPeriod = await PayPeriodService.getPayPeriodSummary(payPeriodId);
+    // Get pay period
+    const payPeriod = await prisma.payPeriod.findUnique({
+      where: { id: payPeriodId }
+    });
     if (!payPeriod) {
       throw new Error('Pay period not found');
     }
 
-    // Get payroll summary data
-    const payrollSummary = await PayslipService.getPayrollSummaryByPeriod(payPeriodId);
+    // Aggregate TimeEntry data directly (no Payslip dependency)
+    const payrollData = await this.aggregateTimeEntries(payPeriodId, payPeriod);
 
     // Create workbook
     const workbook = new ExcelJS.Workbook();
-
-    // Set workbook properties
     workbook.creator = 'EmpCon Payroll System';
-    workbook.lastModifiedBy = 'System';
     workbook.created = new Date();
-    workbook.modified = new Date();
 
-    // Generate sheets
-    await this.createSummarySheet(workbook, payPeriod, payrollSummary);
-    await this.createEmployeeDetailsSheet(workbook, payrollSummary);
-    await this.createAnomalyReportSheet(workbook, payrollSummary);
+    // Generate single simple sheet
+    await this.createSimplePayrollSheet(workbook, payPeriod, payrollData);
 
-    // Generate buffer
+    // Write to buffer
     const buffer = await workbook.xlsx.writeBuffer();
-    return buffer as Buffer;
+    return buffer;
   }
 
-  private static async createSummarySheet(
+  /**
+   * Aggregate TimeEntry data for pay period
+   * Directly queries TimeEntry instead of using Payslip
+   */
+  private static async aggregateTimeEntries(
+    payPeriodId: string,
+    payPeriod: any
+  ): Promise<PayrollData[]> {
+    // Get all active employees
+    const employees = await prisma.user.findMany({
+      where: {
+        status: 'ACTIVE',
+        role: 'EMPLOYEE'
+      },
+      select: {
+        id: true,
+        employeeNumber: true,
+        firstName: true,
+        lastName: true,
+        payRate: true
+      },
+      orderBy: {
+        employeeNumber: 'asc'
+      }
+    });
+
+    const payrollData: PayrollData[] = [];
+
+    for (const employee of employees) {
+      // Get time entries for this employee in pay period
+      const timeEntries = await prisma.timeEntry.findMany({
+        where: {
+          employeeId: employee.id,
+          clockInTime: { gte: payPeriod.startDate },
+          clockOutTime: { lte: payPeriod.endDate },
+          status: 'CLOCKED_OUT'
+        }
+      });
+
+      // Calculate hours
+      let regularHours = 0;
+      let overtimeHours = 0;
+
+      for (const entry of timeEntries) {
+        const entryRegular = entry.totalHours ? Number(entry.totalHours) - (entry.overtimeHours ? Number(entry.overtimeHours) : 0) : 0;
+        const entryOvertime = entry.overtimeHours ? Number(entry.overtimeHours) : 0;
+
+        regularHours += entryRegular;
+        overtimeHours += entryOvertime;
+      }
+
+      const totalHours = regularHours + overtimeHours;
+
+      // Calculate gross pay
+      const payRate = employee.payRate ? Number(employee.payRate) : 0;
+      const grossPay = (regularHours * payRate) + (overtimeHours * payRate * 1.5);
+
+      payrollData.push({
+        employeeNumber: employee.employeeNumber || '',
+        firstName: employee.firstName || '',
+        lastName: employee.lastName || '',
+        regularHours: Number(regularHours.toFixed(2)),
+        overtimeHours: Number(overtimeHours.toFixed(2)),
+        totalHours: Number(totalHours.toFixed(2)),
+        grossPay: Number(grossPay.toFixed(2))
+      });
+    }
+
+    return payrollData;
+  }
+
+  /**
+   * Create simplified payroll sheet for accountant
+   * Format: 순번 | Last Name | First Name | Regular Hours | Overtime Hours | Total Hours | Sum
+   */
+  private static async createSimplePayrollSheet(
     workbook: ExcelJS.Workbook,
     payPeriod: any,
-    payrollSummary: any
+    payrollData: PayrollData[]
   ): Promise<void> {
-    const worksheet = workbook.addWorksheet('Payroll Summary');
+    const worksheet = workbook.addWorksheet('Payroll');
 
-    // Header section
-    worksheet.mergeCells('A1:H1');
-    worksheet.getCell('A1').value = 'EmpCon Payroll Report';
-    worksheet.getCell('A1').font = { size: 16, bold: true };
-    worksheet.getCell('A1').alignment = { horizontal: 'center' };
+    // Generate filename: "September A Payroll.xlsx"
+    const startDate = new Date(payPeriod.startDate);
+    const month = startDate.toLocaleString('en-US', { month: 'long' });
+    const day = startDate.getDate();
+    const period = day === 1 ? 'A' : 'B';
 
-    // Pay period info - parse period format "2024-01-A"
-    const [year, month, period] = payPeriod.period.split('-');
-    const periodType = period === 'A' ? 'Period A (1st-15th)' : 'Period B (16th-end)';
-    worksheet.mergeCells('A2:H2');
-    worksheet.getCell('A2').value = `Pay Period: ${year}-${month} ${periodType}`;
-    worksheet.getCell('A2').font = { size: 12 };
-    worksheet.getCell('A2').alignment = { horizontal: 'center' };
+    workbook.title = `${month} ${period} Payroll`;
 
-    worksheet.mergeCells('A3:H3');
-    worksheet.getCell('A3').value = `Generated: ${new Date().toLocaleString('en-CA')}`;
-    worksheet.getCell('A3').font = { size: 10 };
-    worksheet.getCell('A3').alignment = { horizontal: 'center' };
+    // Header row
+    const headers = [
+      '순번',
+      'Last Name',
+      'First Name',
+      'Regular Hours',
+      'Overtime Hours',
+      'Total Hours',
+      'Sum'
+    ];
 
-    // Summary statistics
-    const totalEmployees = payrollSummary.employees?.length || 0;
-    const totalHours = payrollSummary.employees?.reduce((sum: number, emp: any) => sum + (emp.totalHours || 0), 0) || 0;
-    const totalGrossPay = payrollSummary.employees?.reduce((sum: number, emp: any) => sum + (emp.grossPay || 0), 0) || 0;
-    const anomalyEmployees = payrollSummary.employees?.filter((emp: any) => emp.hasAnomalies).length || 0;
-    const reviewNeeded = payrollSummary.employees?.filter((emp: any) => emp.status === 'NEEDS_REVIEW').length || 0;
+    const headerRow = worksheet.addRow(headers);
 
-    worksheet.getCell('A5').value = 'Total Employees:';
-    worksheet.getCell('B5').value = totalEmployees;
+    // Style header row
+    headerRow.font = { bold: true, size: 11 };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' }
+    };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.getCell('A6').value = 'Total Hours:';
-    worksheet.getCell('B6').value = `${totalHours.toLocaleString()} hours`;
+    // Add employee data
+    let rowNumber = 1;
+    for (const employee of payrollData) {
+      worksheet.addRow([
+        rowNumber,
+        employee.lastName,
+        employee.firstName,
+        employee.regularHours.toFixed(2),
+        employee.overtimeHours.toFixed(2),
+        employee.totalHours.toFixed(2),
+        employee.grossPay.toFixed(2)
+      ]);
 
-    worksheet.getCell('A7').value = 'Total Gross Pay:';
-    worksheet.getCell('B7').value = `$${totalGrossPay.toLocaleString('en-CA', { minimumFractionDigits: 2 })}`;
-
-    worksheet.getCell('A8').value = 'Employees with Anomalies:';
-    worksheet.getCell('B8').value = anomalyEmployees;
-
-    worksheet.getCell('A9').value = 'Review Required:';
-    worksheet.getCell('B9').value = reviewNeeded;
-
-    // Style the summary section
-    for (let row = 5; row <= 9; row++) {
-      worksheet.getCell(`A${row}`).font = { bold: true };
-      worksheet.getCell(`B${row}`).font = { bold: false };
+      rowNumber++;
     }
 
     // Set column widths
     worksheet.columns = [
-      { key: 'A', width: 15 },
-      { key: 'B', width: 20 },
-      { key: 'C', width: 15 },
-      { key: 'D', width: 15 },
-      { key: 'E', width: 15 },
-      { key: 'F', width: 15 },
-      { key: 'G', width: 15 },
-      { key: 'H', width: 15 }
+      { key: 'A', width: 8 },   // 순번
+      { key: 'B', width: 15 },  // Last Name
+      { key: 'C', width: 15 },  // First Name
+      { key: 'D', width: 15 },  // Regular Hours
+      { key: 'E', width: 15 },  // Overtime Hours
+      { key: 'F', width: 15 },  // Total Hours
+      { key: 'G', width: 15 }   // Sum
     ];
-  }
-
-  private static async createEmployeeDetailsSheet(
-    workbook: ExcelJS.Workbook,
-    payrollSummary: any
-  ): Promise<void> {
-    const worksheet = workbook.addWorksheet('Employee Details');
-
-    // Header row
-    const headers = ['Employee Name', 'Department', 'Total Hours', 'Regular Hours', 'Overtime Hours', 'Hourly Rate', 'Gross Pay', 'Status', 'Notes'];
-    worksheet.addRow(headers);
-
-    // Style header row
-    const headerRow = worksheet.getRow(1);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' }
-    };
-
-    // Add employee data
-    if (payrollSummary.employees) {
-      for (const employee of payrollSummary.employees) {
-        const status = employee.hasAnomalies ? 'Review Required' :
-                     employee.status === 'APPROVED' ? 'Approved' : 'Processing';
-
-        const anomalyNote = employee.anomalyReasons?.length > 0 ?
-                           employee.anomalyReasons.join(', ') : '';
-
-        worksheet.addRow([
-          employee.employee?.name || 'Unknown',
-          employee.employee?.department?.name || 'Unassigned',
-          `${employee.totalHours}h`,
-          `${employee.regularHours}h`,
-          `${employee.overtimeHours}h`,
-          `$${employee.employee?.payRate?.toLocaleString('en-CA', { minimumFractionDigits: 2 })}`,
-          `$${employee.grossPay?.toLocaleString('en-CA', { minimumFractionDigits: 2 })}`,
-          status,
-          anomalyNote
-        ]);
-      }
-    }
-
-    // Auto-fit columns
-    worksheet.columns.forEach(column => {
-      column.width = 12;
-    });
 
     // Add borders to all cells
-    worksheet.eachRow((row) => {
+    worksheet.eachRow((row, rowIndex) => {
       row.eachCell((cell) => {
         cell.border = {
           top: { style: 'thin' },
@@ -163,79 +193,9 @@ export class ExcelReportService {
           bottom: { style: 'thin' },
           right: { style: 'thin' }
         };
-      });
-    });
-  }
 
-  private static async createAnomalyReportSheet(
-    workbook: ExcelJS.Workbook,
-    payrollSummary: any
-  ): Promise<void> {
-    const worksheet = workbook.addWorksheet('Anomaly Report');
-
-    // Header row
-    const headers = ['Employee Name', 'Anomaly Type', 'Details', 'Recommended Action'];
-    worksheet.addRow(headers);
-
-    // Style header row
-    const headerRow = worksheet.getRow(1);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFFFCC00' }
-    };
-
-    // Add anomaly data
-    if (payrollSummary.employees) {
-      const anomalyEmployees = payrollSummary.employees.filter((emp: any) => emp.hasAnomalies);
-
-      if (anomalyEmployees.length === 0) {
-        worksheet.addRow(['', 'No anomalies detected.', '', '']);
-      } else {
-        for (const employee of anomalyEmployees) {
-          if (employee.anomalyReasons?.length > 0) {
-            for (const reason of employee.anomalyReasons) {
-              let solution = '';
-              if (reason.includes('consecutive') || reason.includes('연속')) {
-                solution = 'Schedule adjustment required';
-              } else if (reason.includes('overtime') || reason.includes('초과')) {
-                solution = 'Verify overtime approval';
-              } else if (reason.includes('missing') || reason.includes('누락')) {
-                solution = 'Manual time entry required';
-              } else {
-                solution = 'Manager review required';
-              }
-
-              worksheet.addRow([
-                employee.employee?.name || 'Unknown',
-                reason,
-                'Irregular pattern detected during pay period',
-                solution
-              ]);
-            }
-          }
-        }
-      }
-    }
-
-    // Auto-fit columns
-    worksheet.columns = [
-      { key: 'A', width: 15 },
-      { key: 'B', width: 25 },
-      { key: 'C', width: 30 },
-      { key: 'D', width: 25 }
-    ];
-
-    // Add borders to all cells
-    worksheet.eachRow((row) => {
-      row.eachCell((cell) => {
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
+        // Center align all cells
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
     });
   }

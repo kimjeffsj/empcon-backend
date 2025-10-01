@@ -1,4 +1,6 @@
 import { Router } from "express";
+import multer from "multer";
+import path from "path";
 import { payrollController } from "./payroll.controller";
 import { authMiddleware, requireManager, requireAdmin } from "../../middleware/auth.middleware";
 import { validateRequest } from "../../middleware/validation.middleware";
@@ -18,6 +20,41 @@ import {
 } from "@empcon/types";
 
 const router = Router();
+
+// ============= MULTER CONFIGURATION =============
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/payslips/");
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(
+      null,
+      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
+    );
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    // Only allow PDF files
+    const allowedTypes = /pdf/;
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Only PDF files are allowed"));
+    }
+  },
+});
 
 // All payroll routes require authentication
 router.use(authMiddleware);
@@ -198,6 +235,23 @@ router.post(
   requireManager,
   validateRequest(SendToAccountantSchema),
   payrollController.sendPayrollToAccountant
+);
+
+// ============= PAYSLIP FILE MANAGEMENT ROUTES =============
+
+// POST /api/payroll/periods/:payPeriodId/upload-bulk - Bulk upload payslip files (Manager only)
+router.post(
+  "/periods/:payPeriodId/upload-bulk",
+  requireManager,
+  upload.array("payslips", 50), // Max 50 files
+  payrollController.bulkUploadPayslipFiles
+);
+
+// GET /api/payroll/payslips/:id/download - Download payslip file
+router.get(
+  "/payslips/:id/download",
+  validateRequest(PayslipIdParamSchema, "params"),
+  payrollController.downloadPayslipFile
 );
 
 export default router;

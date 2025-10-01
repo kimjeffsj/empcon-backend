@@ -1,7 +1,8 @@
-import nodemailer from 'nodemailer';
-import Handlebars from 'handlebars';
-import { PayPeriodService } from './payPeriod.service';
-import { ExcelReportService } from './excelReport.service';
+import nodemailer from "nodemailer";
+import { Buffer } from "buffer";
+import Handlebars from "handlebars";
+import { PayPeriodService } from "./payPeriod.service";
+import { ExcelReportService } from "./excelReport.service";
 
 export interface SendToAccountantOptions {
   payPeriodId: string;
@@ -22,34 +23,41 @@ export class EmailService {
   // Initialize email transporter
   static initializeTransporter() {
     if (!this.transporter) {
-      this.transporter = nodemailer.createTransporter({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT || '587'),
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: parseInt(process.env.SMTP_PORT || "587"),
         secure: false, // true for 465, false for other ports
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
         tls: {
-          rejectUnauthorized: false // For development
-        }
+          rejectUnauthorized: false, // For development
+        },
       });
     }
     return this.transporter;
   }
 
-  static async sendToAccountant(options: SendToAccountantOptions): Promise<EmailLog> {
+  static async sendToAccountant(
+    options: SendToAccountantOptions
+  ): Promise<EmailLog> {
     const { payPeriodId, accountantEmail } = options;
 
     try {
       // Get pay period information
       const payPeriod = await PayPeriodService.getPayPeriodSummary(payPeriodId);
       if (!payPeriod) {
-        throw new Error('Pay period not found');
+        throw new Error("Pay period not found");
       }
 
       // Generate Excel report
-      const excelBuffer = await ExcelReportService.generatePayrollReport({ payPeriodId });
+      const excelBuffer = await ExcelReportService.generatePayrollReport({
+        payPeriodId,
+      });
+      const attachmentBuffer = Buffer.isBuffer(excelBuffer)
+        ? excelBuffer
+        : Buffer.from(excelBuffer);
 
       // Prepare email content
       const emailContent = this.prepareEmailContent(payPeriod);
@@ -57,18 +65,20 @@ export class EmailService {
       // Determine recipient email
       const recipientEmail = accountantEmail || process.env.ACCOUNTANT_EMAIL;
       if (!recipientEmail) {
-        throw new Error('No accountant email provided');
+        throw new Error("No accountant email provided");
       }
 
       // Initialize transporter
       const transporter = this.initializeTransporter();
 
       // Format filename with period info - parse period format "2024-01-A"
-      const [year, month, period] = payPeriod.period.split('-');
-      const filename = `Payroll_Report_${year}-${month}_Period${period}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const [year, month, period] = payPeriod.period.split("-");
+      const filename = `Payroll_Report_${year}-${month}_Period${period}_${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`;
 
       // Send email
-      const mailOptions = {
+      const mailOptions: nodemailer.SendMailOptions = {
         from: process.env.SMTP_USER,
         to: recipientEmail,
         subject: `[EmpCon] Payroll Report - ${year}-${month} Period ${period}`,
@@ -76,10 +86,11 @@ export class EmailService {
         attachments: [
           {
             filename: filename,
-            content: excelBuffer,
-            contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          }
-        ]
+            content: attachmentBuffer,
+            contentType:
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          },
+        ],
       };
 
       const info = await transporter.sendMail(mailOptions);
@@ -89,22 +100,22 @@ export class EmailService {
         payPeriodId,
         recipientEmail,
         sentAt: new Date(),
-        success: true
+        success: true,
       };
 
-      console.log('Email sent successfully:', info.messageId);
+      console.log("Email sent successfully:", info.messageId);
       return emailLog;
-
     } catch (error) {
-      console.error('Email send failed:', error);
+      console.error("Email send failed:", error);
 
       // Log failed send
       const emailLog: EmailLog = {
         payPeriodId,
-        recipientEmail: accountantEmail || process.env.ACCOUNTANT_EMAIL || 'unknown',
+        recipientEmail:
+          accountantEmail || process.env.ACCOUNTANT_EMAIL || "unknown",
         sentAt: new Date(),
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : "Unknown error",
       };
 
       return emailLog;
@@ -175,12 +186,13 @@ export class EmailService {
     const compiledTemplate = Handlebars.compile(template);
 
     // Parse period format "2024-01-A" -> year, month, period
-    const [year, month, period] = payPeriod.period.split('-');
-    const periodName = period === 'A' ? 'Period A (1st-15th)' : 'Period B (16th-end)';
-    const startDate = new Date(payPeriod.startDate).toLocaleDateString('en-CA');
-    const endDate = new Date(payPeriod.endDate).toLocaleDateString('en-CA');
-    const payDate = new Date(payPeriod.payDate).toLocaleDateString('en-CA');
-    const generatedDate = new Date().toLocaleDateString('en-CA');
+    const [year, month, period] = payPeriod.period.split("-");
+    const periodName =
+      period === "A" ? "Period A (1st-15th)" : "Period B (16th-end)";
+    const startDate = new Date(payPeriod.startDate).toLocaleDateString("en-CA");
+    const endDate = new Date(payPeriod.endDate).toLocaleDateString("en-CA");
+    const payDate = new Date(payPeriod.payDate).toLocaleDateString("en-CA");
+    const generatedDate = new Date().toLocaleDateString("en-CA");
 
     return compiledTemplate({
       year,
@@ -189,7 +201,7 @@ export class EmailService {
       startDate,
       endDate,
       payDate,
-      generatedDate
+      generatedDate,
     });
   }
 
@@ -198,10 +210,10 @@ export class EmailService {
     try {
       const transporter = this.initializeTransporter();
       await transporter.verify();
-      console.log('Email configuration verified successfully');
+      console.log("Email configuration verified successfully");
       return true;
     } catch (error) {
-      console.error('Email configuration test failed:', error);
+      console.error("Email configuration test failed:", error);
       return false;
     }
   }
