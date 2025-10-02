@@ -9,30 +9,78 @@ import {
   GetCurrentPayPeriodResponse,
   PayPeriodSummary,
 } from "@empcon/types";
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 const prisma = new PrismaClient();
+const PACIFIC_TIMEZONE = 'America/Vancouver';
 
 export class PayPeriodService {
   /**
-   * Generate semi-monthly pay period dates
+   * Generate semi-monthly pay period dates in Pacific Time
    * A period: 1st-15th of month
    * B period: 16th-last day of month
    */
   static generatePayPeriodDates(year: number, month: number, period: 'A' | 'B') {
-    const startDate = new Date(year, month - 1, period === 'A' ? 1 : 16);
+    // Determine start and end days
+    const startDay = period === 'A' ? 1 : 16;
 
-    let endDate: Date;
+    let endDay: number;
     if (period === 'A') {
-      endDate = new Date(year, month - 1, 15);
+      endDay = 15;
     } else {
-      // Get last day of month
-      endDate = new Date(year, month, 0); // Day 0 = last day of previous month
+      // Get last day of month using JavaScript Date (month+1, day 0 = last day of previous month)
+      endDay = new Date(year, month, 0).getDate();
     }
 
-    // Pay date is typically 3-5 business days after period end
-    // For MVP, set pay date to 5 days after period end
-    const payDate = new Date(endDate);
-    payDate.setDate(payDate.getDate() + 5);
+    // Build Pacific Time date strings
+    const monthStr = String(month).padStart(2, '0');
+    const startDateStr = `${year}-${monthStr}-${String(startDay).padStart(2, '0')}T00:00:00`;
+    const endDateStr = `${year}-${monthStr}-${String(endDay).padStart(2, '0')}T23:59:59`;
+
+    // Convert Pacific Time strings to UTC Date objects for database storage
+    const startDate = fromZonedTime(startDateStr, PACIFIC_TIMEZONE);
+    const endDate = fromZonedTime(endDateStr, PACIFIC_TIMEZONE);
+
+    // Debug logging - Verify timezone conversion accuracy
+    const startDatePacific = toZonedTime(startDate, PACIFIC_TIMEZONE);
+    const endDatePacific = toZonedTime(endDate, PACIFIC_TIMEZONE);
+
+    console.log('=== PayPeriod Date Generation Debug ===');
+    console.log('Input:', { year, month, period, startDay, endDay });
+    console.log('Pacific Time Strings:', { startDateStr, endDateStr });
+    console.log('Converted to UTC:', {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
+    });
+    console.log('Verify - UTC back to Pacific:', {
+      startDate: startDatePacific.toISOString(),
+      endDate: endDatePacific.toISOString()
+    });
+    console.log('✓ Expected:', {
+      startDate: `Pacific ${year}-${monthStr}-${String(startDay).padStart(2, '0')} 00:00:00`,
+      endDate: `Pacific ${year}-${monthStr}-${String(endDay).padStart(2, '0')} 23:59:59`
+    });
+    console.log('=====================================');
+
+    // Calculate pay date (5 days after period end)
+    const payDay = endDay + 5;
+    // Check if pay date goes into next month
+    const lastDayOfMonth = new Date(year, month, 0).getDate();
+    let payMonth = month;
+    let payYear = year;
+    let actualPayDay = payDay;
+
+    if (payDay > lastDayOfMonth) {
+      actualPayDay = payDay - lastDayOfMonth;
+      payMonth = month + 1;
+      if (payMonth > 12) {
+        payMonth = 1;
+        payYear = year + 1;
+      }
+    }
+
+    const payDateStr = `${payYear}-${String(payMonth).padStart(2, '0')}-${String(actualPayDay).padStart(2, '0')}T00:00:00`;
+    const payDate = fromZonedTime(payDateStr, PACIFIC_TIMEZONE);
 
     return {
       startDate,
@@ -435,6 +483,8 @@ export class PayPeriodService {
 
   /**
    * Format PayPeriod for API response
+   * Returns full ISO timestamps to preserve timezone accuracy for TimeClock filtering
+   * Frontend will handle display conversion to Pacific Time
    */
   static formatPayPeriodResponse(payPeriod: any): PayPeriod {
     return {

@@ -194,9 +194,9 @@ model OvertimeRequest {
 
 model PayPeriod {
   id        String          @id @default(cuid())
-  startDate DateTime        @map("start_date") @db.Date
-  endDate   DateTime        @map("end_date") @db.Date
-  payDate   DateTime        @map("pay_date") @db.Date
+  startDate DateTime        @map("start_date") 
+  endDate   DateTime        @map("end_date") 
+  payDate   DateTime        @map("pay_date") 
   status    PayPeriodStatus @default(OPEN)
   createdAt DateTime        @default(now()) @map("created_at")
   updatedAt DateTime        @updatedAt @map("updated_at")

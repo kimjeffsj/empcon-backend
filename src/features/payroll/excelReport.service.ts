@@ -1,10 +1,10 @@
-import ExcelJS from 'exceljs';
-import { PayPeriodService } from './payPeriod.service';
-import prisma from '@/config/database.config';
+import ExcelJS from "exceljs";
+import { PayPeriodService } from "./payPeriod.service";
+import prisma from "@/config/database.config";
 
 export interface ExcelReportOptions {
   payPeriodId: string;
-  format?: 'excel' | 'pdf';
+  format?: "excel" | "pdf";
 }
 
 interface PayrollData {
@@ -23,10 +23,10 @@ export class ExcelReportService {
 
     // Get pay period
     const payPeriod = await prisma.payPeriod.findUnique({
-      where: { id: payPeriodId }
+      where: { id: payPeriodId },
     });
     if (!payPeriod) {
-      throw new Error('Pay period not found');
+      throw new Error("Pay period not found");
     }
 
     // Aggregate TimeEntry data directly (no Payslip dependency)
@@ -34,7 +34,7 @@ export class ExcelReportService {
 
     // Create workbook
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'EmpCon Payroll System';
+    workbook.creator = "EmpCon Payroll System";
     workbook.created = new Date();
 
     // Generate single simple sheet
@@ -56,19 +56,19 @@ export class ExcelReportService {
     // Get all active employees
     const employees = await prisma.user.findMany({
       where: {
-        status: 'ACTIVE',
-        role: 'EMPLOYEE'
+        status: "ACTIVE",
+        role: "EMPLOYEE",
       },
       select: {
         id: true,
         employeeNumber: true,
         firstName: true,
         lastName: true,
-        payRate: true
+        payRate: true,
       },
       orderBy: {
-        employeeNumber: 'asc'
-      }
+        employeeNumber: "asc",
+      },
     });
 
     const payrollData: PayrollData[] = [];
@@ -80,8 +80,8 @@ export class ExcelReportService {
           employeeId: employee.id,
           clockInTime: { gte: payPeriod.startDate },
           clockOutTime: { lte: payPeriod.endDate },
-          status: 'CLOCKED_OUT'
-        }
+          status: "CLOCKED_OUT",
+        },
       });
 
       // Calculate hours
@@ -89,8 +89,13 @@ export class ExcelReportService {
       let overtimeHours = 0;
 
       for (const entry of timeEntries) {
-        const entryRegular = entry.totalHours ? Number(entry.totalHours) - (entry.overtimeHours ? Number(entry.overtimeHours) : 0) : 0;
-        const entryOvertime = entry.overtimeHours ? Number(entry.overtimeHours) : 0;
+        const entryRegular = entry.totalHours
+          ? Number(entry.totalHours) -
+            (entry.overtimeHours ? Number(entry.overtimeHours) : 0)
+          : 0;
+        const entryOvertime = entry.overtimeHours
+          ? Number(entry.overtimeHours)
+          : 0;
 
         regularHours += entryRegular;
         overtimeHours += entryOvertime;
@@ -100,16 +105,16 @@ export class ExcelReportService {
 
       // Calculate gross pay
       const payRate = employee.payRate ? Number(employee.payRate) : 0;
-      const grossPay = (regularHours * payRate) + (overtimeHours * payRate * 1.5);
+      const grossPay = regularHours * payRate + overtimeHours * payRate * 1.5;
 
       payrollData.push({
-        employeeNumber: employee.employeeNumber || '',
-        firstName: employee.firstName || '',
-        lastName: employee.lastName || '',
+        employeeNumber: employee.employeeNumber || "",
+        firstName: employee.firstName || "",
+        lastName: employee.lastName || "",
         regularHours: Number(regularHours.toFixed(2)),
         overtimeHours: Number(overtimeHours.toFixed(2)),
         totalHours: Number(totalHours.toFixed(2)),
-        grossPay: Number(grossPay.toFixed(2))
+        grossPay: Number(grossPay.toFixed(2)),
       });
     }
 
@@ -125,25 +130,25 @@ export class ExcelReportService {
     payPeriod: any,
     payrollData: PayrollData[]
   ): Promise<void> {
-    const worksheet = workbook.addWorksheet('Payroll');
+    const worksheet = workbook.addWorksheet("Payroll");
 
     // Generate filename: "September A Payroll.xlsx"
     const startDate = new Date(payPeriod.startDate);
-    const month = startDate.toLocaleString('en-US', { month: 'long' });
+    const month = startDate.toLocaleString("en-US", { month: "long" });
     const day = startDate.getDate();
-    const period = day === 1 ? 'A' : 'B';
+    const period = day === 1 ? "A" : "B";
 
     workbook.title = `${month} ${period} Payroll`;
 
     // Header row
     const headers = [
-      '순번',
-      'Last Name',
-      'First Name',
-      'Regular Hours',
-      'Overtime Hours',
-      'Total Hours',
-      'Sum'
+      "No",
+      "Last Name",
+      "First Name",
+      "Regular Hours",
+      "Overtime Hours",
+      "Total Hours",
+      "Sum",
     ];
 
     const headerRow = worksheet.addRow(headers);
@@ -151,11 +156,11 @@ export class ExcelReportService {
     // Style header row
     headerRow.font = { bold: true, size: 11 };
     headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' }
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFD3D3D3" },
     };
-    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.alignment = { horizontal: "center", vertical: "middle" };
 
     // Add employee data
     let rowNumber = 1;
@@ -167,7 +172,7 @@ export class ExcelReportService {
         employee.regularHours.toFixed(2),
         employee.overtimeHours.toFixed(2),
         employee.totalHours.toFixed(2),
-        employee.grossPay.toFixed(2)
+        employee.grossPay.toFixed(2),
       ]);
 
       rowNumber++;
@@ -175,27 +180,27 @@ export class ExcelReportService {
 
     // Set column widths
     worksheet.columns = [
-      { key: 'A', width: 8 },   // 순번
-      { key: 'B', width: 15 },  // Last Name
-      { key: 'C', width: 15 },  // First Name
-      { key: 'D', width: 15 },  // Regular Hours
-      { key: 'E', width: 15 },  // Overtime Hours
-      { key: 'F', width: 15 },  // Total Hours
-      { key: 'G', width: 15 }   // Sum
+      { key: "A", width: 8 }, // No
+      { key: "B", width: 15 }, // Last Name
+      { key: "C", width: 15 }, // First Name
+      { key: "D", width: 15 }, // Regular Hours
+      { key: "E", width: 15 }, // Overtime Hours
+      { key: "F", width: 15 }, // Total Hours
+      { key: "G", width: 15 }, // Sum
     ];
 
     // Add borders to all cells
     worksheet.eachRow((row, rowIndex) => {
       row.eachCell((cell) => {
         cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
         };
 
         // Center align all cells
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
       });
     });
   }
