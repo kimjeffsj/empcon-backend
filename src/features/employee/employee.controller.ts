@@ -75,9 +75,13 @@ export const employeeController = {
     const userRole = req.user!.role;
     const currentUserId = req.user!.userId;
 
-    const response = await EmployeeService.getEmployees(query, userRole, currentUserId);
+    const result = await EmployeeService.getEmployees(query, userRole, currentUserId);
 
-    res.json(response);
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+    });
   }),
 
   // GET /api/employees/:id

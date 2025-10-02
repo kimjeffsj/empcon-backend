@@ -5,7 +5,7 @@ import {
   UpdateEmployeeRequest,
   EmployeeListRequest,
   EmployeeResponse,
-  EmployeeListResponse,
+  PaginatedResponse,
 } from "@empcon/types";
 
 const prisma = new PrismaClient();
@@ -198,7 +198,7 @@ export class EmployeeService {
     query: Partial<EmployeeListRequest>,
     userRole: string,
     currentUserId: string
-  ): Promise<EmployeeListResponse> {
+  ): Promise<PaginatedResponse<EmployeeResponse>> {
     const {
       page = 1,
       limit = 10,
@@ -231,7 +231,7 @@ export class EmployeeService {
     } else {
       // No valid role - return empty result
       return {
-        employees: [],
+        data: [],
         pagination: {
           total: 0,
           page,
@@ -292,7 +292,7 @@ export class EmployeeService {
     );
 
     return {
-      employees: formattedEmployees,
+      data: formattedEmployees,
       pagination: {
         total,
         page,

@@ -443,7 +443,7 @@ export const payrollController = {
     // Build full file path
     const fs = require('fs');
     const path = require('path');
-    const fullPath = path.join(__dirname, '../../../..', payslip.filePath);
+    const fullPath = path.join(process.cwd(), payslip.filePath);
 
     if (!fs.existsSync(fullPath)) {
       return res.status(404).json({
