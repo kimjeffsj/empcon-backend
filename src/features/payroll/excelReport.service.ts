@@ -1,5 +1,4 @@
 import ExcelJS from "exceljs";
-import { PayPeriodService } from "./payPeriod.service";
 import prisma from "@/config/database.config";
 
 export interface ExcelReportOptions {
@@ -14,6 +13,7 @@ interface PayrollData {
   regularHours: number;
   overtimeHours: number;
   totalHours: number;
+  payRate: number;
   grossPay: number;
 }
 
@@ -80,7 +80,7 @@ export class ExcelReportService {
           employeeId: employee.id,
           clockInTime: { gte: payPeriod.startDate },
           clockOutTime: { lte: payPeriod.endDate },
-          status: "CLOCKED_OUT",
+          status: { in: ["CLOCKED_OUT", "ADJUSTED"] },
         },
       });
 
@@ -107,15 +107,19 @@ export class ExcelReportService {
       const payRate = employee.payRate ? Number(employee.payRate) : 0;
       const grossPay = regularHours * payRate + overtimeHours * payRate * 1.5;
 
-      payrollData.push({
-        employeeNumber: employee.employeeNumber || "",
-        firstName: employee.firstName || "",
-        lastName: employee.lastName || "",
-        regularHours: Number(regularHours.toFixed(2)),
-        overtimeHours: Number(overtimeHours.toFixed(2)),
-        totalHours: Number(totalHours.toFixed(2)),
-        grossPay: Number(grossPay.toFixed(2)),
-      });
+      // Only include employees with hours worked
+      if (totalHours > 0) {
+        payrollData.push({
+          employeeNumber: employee.employeeNumber || "",
+          firstName: employee.firstName || "",
+          lastName: employee.lastName || "",
+          regularHours: Number(regularHours.toFixed(2)),
+          overtimeHours: Number(overtimeHours.toFixed(2)),
+          totalHours: Number(totalHours.toFixed(2)),
+          payRate: Number(payRate.toFixed(2)),
+          grossPay: Number(grossPay.toFixed(2)),
+        });
+      }
     }
 
     return payrollData;
@@ -148,6 +152,7 @@ export class ExcelReportService {
       "Regular Hours",
       "Overtime Hours",
       "Total Hours",
+      "PayRate",
       "Sum",
     ];
 
@@ -172,6 +177,7 @@ export class ExcelReportService {
         employee.regularHours.toFixed(2),
         employee.overtimeHours.toFixed(2),
         employee.totalHours.toFixed(2),
+        employee.payRate.toFixed(2),
         employee.grossPay.toFixed(2),
       ]);
 
@@ -186,7 +192,8 @@ export class ExcelReportService {
       { key: "D", width: 15 }, // Regular Hours
       { key: "E", width: 15 }, // Overtime Hours
       { key: "F", width: 15 }, // Total Hours
-      { key: "G", width: 15 }, // Sum
+      { key: "G", width: 15 }, // PayRate
+      { key: "H", width: 15 }, // Sum
     ];
 
     // Add borders to all cells
