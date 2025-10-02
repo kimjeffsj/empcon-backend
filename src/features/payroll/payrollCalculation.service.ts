@@ -235,21 +235,23 @@ export class PayrollCalculationService {
       throw new Error('Employee does not have pay rate or pay type configured');
     }
 
-    // Get current pay period if not specified
+    // Get latest completed pay period if not specified
     let targetPayPeriodId = payPeriodId;
     if (!targetPayPeriodId) {
-      const currentPayPeriod = await prisma.payPeriod.findFirst({
+      const latestCompletedPayPeriod = await prisma.payPeriod.findFirst({
         where: {
-          startDate: { lte: new Date() },
-          endDate: { gte: new Date() }
+          endDate: { lt: new Date() }  // Pay period has ended
+        },
+        orderBy: {
+          endDate: 'desc'  // Most recent first
         }
       });
 
-      if (!currentPayPeriod) {
-        throw new Error('No current pay period found');
+      if (!latestCompletedPayPeriod) {
+        throw new Error('No completed pay period found');
       }
 
-      targetPayPeriodId = currentPayPeriod.id;
+      targetPayPeriodId = latestCompletedPayPeriod.id;
     }
 
     // Calculate current period payroll
