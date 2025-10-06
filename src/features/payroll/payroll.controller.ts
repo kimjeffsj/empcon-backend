@@ -9,7 +9,6 @@ import {
   ApiResponse,
   CreatePayPeriodRequest,
   UpdatePayPeriodRequest,
-  GeneratePayslipsRequest,
   UpdatePayslipRequest,
 } from "@empcon/types";
 
@@ -161,19 +160,8 @@ export const payrollController = {
 
   // ============= PAYSLIP ENDPOINTS =============
 
-  // POST /api/payroll/payslips/generate - Generate payslips for pay period
-  generatePayslips: catchAsync(async (req: Request, res: Response) => {
-    const request: GeneratePayslipsRequest = req.body;
-    const result = await PayslipService.generatePayslips(request);
-
-    const response: ApiResponse<typeof result> = {
-      success: true,
-      message: result.message,
-      data: result,
-    };
-
-    res.status(201).json(response);
-  }),
+  // Note: Payslip generation removed - handled via bulk upload from accountant
+  // Workflow: Calculate → Excel → Email → Accountant creates PDFs → Bulk Upload
 
   // GET /api/payroll/payslips - Get payslips with filtering
   getPayslips: catchAsync(async (req: Request, res: Response) => {

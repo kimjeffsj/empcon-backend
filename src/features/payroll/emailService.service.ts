@@ -95,6 +95,11 @@ export class EmailService {
 
       const info = await transporter.sendMail(mailOptions);
 
+      // Update pay period status to PROCESSING (email sent to accountant)
+      await PayPeriodService.updatePayPeriod(payPeriodId, {
+        status: "PROCESSING",
+      });
+
       // Log successful send
       const emailLog: EmailLog = {
         payPeriodId,
@@ -104,6 +109,7 @@ export class EmailService {
       };
 
       console.log("Email sent successfully:", info.messageId);
+      console.log("Pay period status updated to PROCESSING");
       return emailLog;
     } catch (error) {
       console.error("Email send failed:", error);

@@ -14,8 +14,12 @@ const prisma = new PrismaClient();
 
 export class PayslipService {
   /**
-   * Generate payslips for a pay period
+   * NOTE: generatePayslips method removed from workflow
+   * Payslips are now created via bulkUploadPayslipFiles when accountant PDFs are uploaded
+   * Workflow: Calculate → Excel → Email → Accountant PDFs → Bulk Upload
    */
+
+  /* DEPRECATED - Kept for reference only
   static async generatePayslips(
     request: GeneratePayslipsRequest
   ): Promise<GeneratePayslipsResponse> {
@@ -148,6 +152,7 @@ export class PayslipService {
       message: `Successfully generated ${payslips.length} payslips for pay period`,
     };
   }
+  */
 
   /**
    * Get payslips with filtering and pagination
@@ -651,6 +656,15 @@ export class PayslipService {
         errors.push(`Failed to process ${file.originalname}: ${error.message}`);
         failedCount++;
       }
+    }
+
+    // Update pay period status to COMPLETED if at least one file was uploaded successfully
+    if (successCount > 0) {
+      await prisma.payPeriod.update({
+        where: { id: payPeriodId },
+        data: { status: "COMPLETED" },
+      });
+      console.log(`Pay period ${payPeriodId} status updated to COMPLETED`);
     }
 
     return {

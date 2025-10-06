@@ -8,7 +8,6 @@ import {
   CreatePayPeriodSchema,
   UpdatePayPeriodSchema,
   GetPayPeriodsParamsSchema,
-  GeneratePayslipsSchema,
   GetPayslipsParamsSchema,
   UpdatePayslipSchema,
   PayPeriodIdParamSchema,
@@ -152,13 +151,9 @@ router.get(
 
 // ============= PAYSLIP ROUTES =============
 
-// POST /api/payroll/payslips/generate - Generate payslips for pay period (Admin only)
-router.post(
-  "/payslips/generate",
-  requireManager,
-  validateRequest(GeneratePayslipsSchema),
-  payrollController.generatePayslips
-);
+// Note: Payslip generation happens via bulk upload from accountant
+// POST /payslips/generate endpoint removed - not needed in current workflow
+// Workflow: Calculate → Excel Report → Email → Accountant PDFs → Bulk Upload
 
 // GET /api/payroll/payslips - Get payslips with filtering
 // Employees can only view their own payslips
