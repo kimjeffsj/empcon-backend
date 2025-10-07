@@ -1,10 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/config/database.config";
 import {
   CreateDepartmentRequest,
   UpdateDepartmentRequest,
 } from "@empcon/types";
-
-const prisma = new PrismaClient();
 
 export class DepartmentService {
   // Department response formatting

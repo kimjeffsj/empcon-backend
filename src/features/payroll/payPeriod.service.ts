@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/config/database.config";
 import {
   PayPeriod,
   CreatePayPeriodRequest,
@@ -10,8 +10,6 @@ import {
   PayPeriodSummary,
 } from "@empcon/types";
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
-
-const prisma = new PrismaClient();
 const PACIFIC_TIMEZONE = 'America/Vancouver';
 
 export class PayPeriodService {

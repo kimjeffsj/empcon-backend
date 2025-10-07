@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/config/database.config";
 import {
   PayrollCalculationInput,
   PayrollCalculationResult,
@@ -8,8 +8,6 @@ import {
   DEFAULT_OVERTIME_RULES,
   DEFAULT_DEDUCTION_RATES,
 } from "@empcon/types";
-
-const prisma = new PrismaClient();
 
 export class PayrollCalculationService {
   /**

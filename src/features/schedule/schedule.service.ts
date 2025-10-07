@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/config/database.config";
 import {
   CreateScheduleRequest,
   UpdateScheduleRequest,
@@ -13,8 +13,6 @@ import {
   GracePeriodResult,
 } from "@empcon/types";
 import { DateTimeUtils } from "@/utils/dateTime.utils";
-
-const prisma = new PrismaClient();
 
 export class ScheduleService {
   // Grace Period logic (for future TimeEntry integration)

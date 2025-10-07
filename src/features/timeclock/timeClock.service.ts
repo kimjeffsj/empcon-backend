@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/config/database.config";
 import {
   TimeEntry,
   ClockInRequest,
@@ -17,8 +17,6 @@ import {
   DEFAULT_TIMECLOCK_RULES,
 } from "@empcon/types";
 import { DateTimeUtils } from "@/utils/dateTime.utils";
-
-const prisma = new PrismaClient();
 
 export class TimeClockService {
   // 15-minute payroll rounding logic

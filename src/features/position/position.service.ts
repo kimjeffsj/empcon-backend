@@ -1,10 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/config/database.config";
 import {
   CreatePositionRequest,
   UpdatePositionRequest,
 } from "@empcon/types";
-
-const prisma = new PrismaClient();
 
 export class PositionService {
   // Position response formatting

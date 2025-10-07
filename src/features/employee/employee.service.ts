@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/config/database.config";
 import * as crypto from "crypto";
 import {
   CreateEmployeeRequest,
@@ -7,8 +7,6 @@ import {
   EmployeeResponse,
   PaginatedResponse,
 } from "@empcon/types";
-
-const prisma = new PrismaClient();
 
 // Encryption for SIN
 const ENCRYPTION_KEY =

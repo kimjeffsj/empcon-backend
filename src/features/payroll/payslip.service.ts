@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/config/database.config";
 import {
   Payslip,
   GeneratePayslipsRequest,
@@ -9,8 +9,6 @@ import {
   PayslipSummary,
 } from "@empcon/types";
 import { PayrollCalculationService } from "./payrollCalculation.service";
-
-const prisma = new PrismaClient();
 
 export class PayslipService {
   /**
