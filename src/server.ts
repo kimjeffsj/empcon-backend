@@ -29,17 +29,13 @@ app.use(corsMiddleware);
 // Logging middleware
 app.use(loggerMiddleware);
 
-// Body parsing middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
 // Compression middleware
 app.use(compression());
 
 // Trust proxy (for rate limiting and logging)
 app.set("trust proxy", 1);
 
-// API routes
+// API routes (body-parser applied at route level, not globally)
 app.use("/api", routes);
 
 // Root endpoint

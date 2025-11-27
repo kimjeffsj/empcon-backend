@@ -1,6 +1,9 @@
 import { Router } from "express";
+import express from "express";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+import prisma from "@/config/database.config";
 import { payrollController } from "./payroll.controller";
 import { authMiddleware, requireManager, requireAdmin } from "../../middleware/auth.middleware";
 import { validateRequest } from "../../middleware/validation.middleware";
@@ -22,17 +25,55 @@ const router = Router();
 
 // ============= MULTER CONFIGURATION =============
 
-// Multer storage configuration
+// Helper function to generate period string from date
+const getPeriodString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = date.getDate();
+  const period = day === 1 ? "A" : "B";
+  return `${year}-${month}-${period}`;
+};
+
+// Multer storage configuration with period-based folders
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/payslips/");
+  destination: async (req, file, cb) => {
+    try {
+      // Extract payPeriodId from URL params
+      const payPeriodId = req.params.payPeriodId;
+
+      if (!payPeriodId) {
+        return cb(new Error("Pay period ID is required"), "");
+      }
+
+      // Fetch PayPeriod from database
+      const payPeriod = await prisma.payPeriod.findUnique({
+        where: { id: payPeriodId },
+      });
+
+      if (!payPeriod) {
+        return cb(new Error("Pay period not found"), "");
+      }
+
+      // Generate period string (e.g., "2025-01-A")
+      const periodString = getPeriodString(payPeriod.startDate);
+      const uploadDir = `uploads/payslips/${periodString}`;
+
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      cb(null, uploadDir);
+    } catch (error) {
+      cb(error as Error, "");
+    }
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
-    );
+    // Keep original filename (e.g., "Sep A - John Doe.pdf")
+    // or add timestamp for uniqueness
+    const timestamp = Date.now();
+    const originalName = file.originalname;
+    cb(null, `${timestamp}-${originalName}`);
   },
 });
 
@@ -57,6 +98,19 @@ const upload = multer({
 
 // All payroll routes require authentication
 router.use(authMiddleware);
+
+// Body parsing for all routes EXCEPT file uploads
+// Apply globally but Multer will handle multipart/form-data
+router.use((req, res, next) => {
+  // Skip body-parser for file upload route
+  if (req.path.includes('/upload-bulk')) {
+    return next();
+  }
+  express.json({ limit: "10mb" })(req, res, (err) => {
+    if (err) return next(err);
+    express.urlencoded({ extended: true, limit: "10mb" })(req, res, next);
+  });
+});
 
 // ============= PAY PERIOD ROUTES =============
 
@@ -235,6 +289,7 @@ router.post(
 // ============= PAYSLIP FILE MANAGEMENT ROUTES =============
 
 // POST /api/payroll/periods/:payPeriodId/upload-bulk - Bulk upload payslip files (Manager only)
+// NOTE: Body-parser is skipped for this route (see middleware above)
 router.post(
   "/periods/:payPeriodId/upload-bulk",
   requireManager,

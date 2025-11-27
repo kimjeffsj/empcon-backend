@@ -409,6 +409,7 @@ export class PayslipService {
       const periodString = `${year}-${month}-${period}`;
 
       return {
+        id: payslip.id,
         employeeId: payslip.employeeId,
         employeeName: `${payslip.employee.firstName || ""} ${
           payslip.employee.lastName || ""
@@ -422,6 +423,7 @@ export class PayslipService {
         deductions: Number(payslip.deductions),
         netPay: Number(payslip.netPay),
         payPeriod: periodString,
+        filePath: payslip.filePath || undefined,
       };
     });
   }
@@ -465,6 +467,7 @@ export class PayslipService {
       const periodString = `${year}-${month}-${period}`;
 
       return {
+        id: payslip.id,
         employeeId: payslip.employeeId,
         employeeName: `${payslip.employee.firstName || ""} ${
           payslip.employee.lastName || ""
@@ -478,6 +481,7 @@ export class PayslipService {
         deductions: Number(payslip.deductions),
         netPay: Number(payslip.netPay),
         payPeriod: periodString,
+        filePath: payslip.filePath || undefined,
       };
     });
   }
@@ -629,7 +633,9 @@ export class PayslipService {
           },
         });
 
-        const filePath = `/uploads/payslips/${file.filename}`;
+        // Use full path from Multer (includes period folder)
+        // e.g., "uploads/payslips/2025-01-A/1234567890-Sep A - John Doe.pdf"
+        const filePath = `/${file.path.replace(/\\/g, "/")}`;
 
         if (existingPayslip) {
           // Update existing Payslip with filePath
