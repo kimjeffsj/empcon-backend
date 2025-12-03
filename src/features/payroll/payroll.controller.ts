@@ -3,7 +3,7 @@ import { PayPeriodService } from "./payPeriod.service";
 import { PayslipService } from "./payslip.service";
 import { PayrollCalculationService } from "./payrollCalculation.service";
 import { ExcelReportService } from "./excelReport.service";
-import { EmailService } from "./emailService.service";
+import { EmailService } from "@/services/email/emailService";
 import { catchAsync } from "../../middleware/errorHandler.middleware";
 import {
   ApiResponse,

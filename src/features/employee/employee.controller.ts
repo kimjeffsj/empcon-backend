@@ -75,7 +75,11 @@ export const employeeController = {
     const userRole = req.user!.role;
     const currentUserId = req.user!.userId;
 
-    const result = await EmployeeService.getEmployees(query, userRole, currentUserId);
+    const result = await EmployeeService.getEmployees(
+      query,
+      userRole,
+      currentUserId
+    );
 
     res.json({
       success: true,
@@ -109,12 +113,16 @@ export const employeeController = {
     const employeeData: CreateEmployeeRequest = req.body;
     const userRole = req.user!.role;
 
-    const employee = await EmployeeService.createEmployee(employeeData, userRole);
+    const employee = await EmployeeService.createEmployee(
+      employeeData,
+      userRole
+    );
 
     const response: ApiResponse<EmployeeResponse> = {
       success: true,
       data: employee,
-      message: "Employee created successfully",
+      message:
+        "Employee created successfully, Temporary password has been sent to the employee's email.",
     };
 
     res.status(201).json(response);

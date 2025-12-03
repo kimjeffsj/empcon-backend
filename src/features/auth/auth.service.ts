@@ -8,6 +8,7 @@ import {
   UserRole,
 } from "@empcon/types";
 import { PasswordUtils } from "@/utils/password.utils";
+import { EmailService } from "@/services/email/emailService";
 
 export class AuthService {
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
@@ -232,5 +233,23 @@ export class AuthService {
     });
 
     return tempPassword; // for email
+  }
+
+  static async generateAndSendTempPassword(
+    userId: string,
+    userEmail: string,
+    employeeName: string
+  ): Promise<string> {
+    // Generate temporary password
+    const tempPassword = await this.generateTempPassword(userId);
+
+    // Send email with temporary password
+    await EmailService.sendTempPasswordEmail({
+      email: userEmail,
+      tempPassword,
+      employeeName,
+    });
+
+    return tempPassword;
   }
 }

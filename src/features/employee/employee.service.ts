@@ -7,6 +7,7 @@ import {
   EmployeeResponse,
   PaginatedResponse,
 } from "@empcon/types";
+import { AuthService } from "@/features/auth/auth.service";
 
 // Encryption for SIN
 const ENCRYPTION_KEY =
@@ -151,7 +152,9 @@ export class EmployeeService {
   }
 
   // Business logic methods
-  static async validateEmail(email: string): Promise<{ available: boolean; message: string }> {
+  static async validateEmail(
+    email: string
+  ): Promise<{ available: boolean; message: string }> {
     const existingUser = await prisma.user.findUnique({
       where: { email },
       select: { id: true, email: true },
@@ -159,13 +162,13 @@ export class EmployeeService {
 
     return {
       available: !existingUser,
-      message: existingUser
-        ? "Email is already in use"
-        : "Email is available",
+      message: existingUser ? "Email is already in use" : "Email is available",
     };
   }
 
-  static async validateEmployeeNumber(number: string): Promise<{ available: boolean; message: string }> {
+  static async validateEmployeeNumber(
+    number: string
+  ): Promise<{ available: boolean; message: string }> {
     const existingUser = await prisma.user.findFirst({
       where: { employeeNumber: number },
       select: { id: true, employeeNumber: true },
@@ -407,6 +410,20 @@ export class EmployeeService {
       },
     });
 
+    // Generate and send temporary password email
+    try {
+      await AuthService.generateAndSendTempPassword(
+        user.id,
+        user.email,
+        `${user.firstName} ${user.lastName}`
+      );
+      console.log(`Temporary password email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error("Failed to send temporary password email:", emailError);
+      // Don't throw error - employee is already created
+      // Admin can manually send password reset if needed
+    }
+
     return this.formatEmployeeResponse(user, userRole);
   }
 
@@ -434,10 +451,8 @@ export class EmployeeService {
       updatePayload.lastName = updateData.lastName;
     if (updateData.middleName !== undefined)
       updatePayload.middleName = updateData.middleName;
-    if (updateData.email !== undefined)
-      updatePayload.email = updateData.email;
-    if (updateData.phone !== undefined)
-      updatePayload.phone = updateData.phone;
+    if (updateData.email !== undefined) updatePayload.email = updateData.email;
+    if (updateData.phone !== undefined) updatePayload.phone = updateData.phone;
     if (updateData.addressLine1 !== undefined)
       updatePayload.addressLine1 = updateData.addressLine1;
     if (updateData.addressLine2 !== undefined)
@@ -455,8 +470,7 @@ export class EmployeeService {
       updatePayload.payRate = updateData.payRate || 0;
     if (updateData.payType !== undefined)
       updatePayload.payType = updateData.payType;
-    if (updateData.role !== undefined)
-      updatePayload.role = updateData.role;
+    if (updateData.role !== undefined) updatePayload.role = updateData.role;
     if (updateData.departmentId !== undefined)
       updatePayload.departmentId = updateData.departmentId;
     if (updateData.positionId !== undefined)
@@ -469,8 +483,7 @@ export class EmployeeService {
       updatePayload.emergencyContactName = updateData.emergencyContactName;
     if (updateData.emergencyContactPhone !== undefined)
       updatePayload.emergencyContactPhone = updateData.emergencyContactPhone;
-    if (updateData.notes !== undefined)
-      updatePayload.notes = updateData.notes;
+    if (updateData.notes !== undefined) updatePayload.notes = updateData.notes;
 
     // Encrypt SIN if provided
     if (updateData.sin !== undefined) {
