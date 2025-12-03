@@ -1,0 +1,370 @@
+import nodemailer from "nodemailer";
+import { Buffer } from "buffer";
+import Handlebars from "handlebars";
+import fs from "fs";
+import path from "path";
+import { SendToAccountantOptions } from "@/features/payroll/emailService.service";
+
+export interface EmailLog {
+  payPeriodId: string;
+  recipientEmail: string;
+  sentAt: Date;
+  success: boolean;
+  error?: string;
+}
+
+export interface SendTempPasswordOptions {
+  email: string;
+  tempPassword: string;
+  employeeName: string;
+}
+
+export interface SendPasswordResetOptions {
+  email: string;
+  resetToken: string;
+  employeeName: string;
+}
+
+export interface SendWelcomeOptions {
+  email: string;
+  employeeName: string;
+}
+
+export class EmailService {
+  private static transporter: nodemailer.Transporter;
+
+  // Initialize email transporter
+  static initializeTransporter() {
+    if (!this.transporter) {
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: parseInt(process.env.SMTP_PORT || "587"),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+        tls: {
+          rejectUnauthorized: false, // development
+        },
+      });
+    }
+
+    return this.transporter;
+  }
+
+  // Auth related Email methods
+
+  /**
+   * Send temp password email to new employee
+   */
+
+  static async sendTempPasswordEmail(
+    options: SendTempPasswordOptions
+  ): Promise<boolean> {
+    const { email, tempPassword, employeeName } = options;
+
+    try {
+      const transporter = this.initializeTransporter();
+      const templatePath = path.join(
+        __dirname,
+        "templates",
+        "tempPassword.hbs"
+      );
+      const templateSource = fs.readFileSync(templatePath, "utf-8");
+      const template = Handlebars.compile(templateSource);
+
+      const emailContent = template({
+        employeeName,
+        tempPassword,
+        loginUrl: process.env.FRONTEND_URL || "http://localhost:3000/login",
+      });
+
+      const mailOptions: nodemailer.SendMailOptions = {
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: "[EmpCon] Welcome ! Your Temporary Password",
+        html: emailContent,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`Temporary password email sent to ${email}`);
+      return true;
+    } catch (error) {
+      console.error("Failed to send temporary password email:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Send password reset email
+   */
+  static async sendPasswordResetEmail(
+    options: SendPasswordResetOptions
+  ): Promise<boolean> {
+    const { email, resetToken, employeeName } = options;
+
+    try {
+      const transporter = this.initializeTransporter();
+      const templatePath = path.join(
+        __dirname,
+        "templates",
+        "passwordReset.hbs"
+      );
+      const templateSource = fs.readFileSync(templatePath, "utf-8");
+      const template = Handlebars.compile(templateSource);
+
+      const resetUrl = `${
+        process.env.FRONTEND_URL || "http://localhost:3000"
+      }/reset-password?token=${resetToken}`;
+
+      const emailContent = template({
+        employeeName,
+        resetUrl,
+      });
+
+      const mailOptions: nodemailer.SendMailOptions = {
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: "[EmpCon] Password Reset Request",
+        html: emailContent,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`Password reset email sent to ${email}`);
+      return true;
+    } catch (error) {
+      console.error("Failed to send password reset email:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Send welcome email to new employees
+   */
+  static async sendWelcomeEmail(options: SendWelcomeOptions): Promise<boolean> {
+    const { email, employeeName } = options;
+
+    try {
+      const transporter = this.initializeTransporter();
+      const templatePath = path.join(__dirname, "templates", "welcome.hbs");
+      const templateSource = fs.readFileSync(templatePath, "utf-8");
+      const template = Handlebars.compile(templateSource);
+
+      const emailContent = template({
+        employeeName,
+        loginUrl: process.env.FRONTEND_URL || "http:localhost:3000/login",
+      });
+
+      const mailOptions: nodemailer.SendMailOptions = {
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: "[EmpCon] Welcome to the Team!",
+        html: emailContent,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`Welcome email sent to ${email}`);
+      return true;
+    } catch (error) {
+      console.error("Failed to send welcome email:", error);
+      return false;
+    }
+  }
+
+  // Payroll Email
+
+  /**
+   * Send Payroll report to accountant
+   */
+  static async sendToAccountant(
+    options: SendToAccountantOptions
+  ): Promise<EmailLog> {
+    const { payPeriodId, accountantEmail } = options;
+
+    try {
+      // Dynamic import payroll service to avoid circular dependencies
+      const { PayPeriodService } = await import(
+        "@/features/payroll/payPeriod.service"
+      );
+      const { ExcelReportService } = await import(
+        "@/features/payroll/excelReport.service"
+      );
+      // Get pay period information
+      const payPeriod = await PayPeriodService.getPayPeriodSummary(payPeriodId);
+      if (!payPeriod) {
+        throw new Error("Pay period not found");
+      }
+
+      // Generate Excel report
+      const excelBuffer = await ExcelReportService.generatePayrollReport({
+        payPeriodId,
+      });
+      const attachmentBuffer = Buffer.isBuffer(excelBuffer)
+        ? excelBuffer
+        : Buffer.from(excelBuffer);
+
+      // Prepare email content
+      const emailContent = this.preparePayrollEmailContent(payPeriod);
+
+      // Determine recipient email
+      const recipientEmail = accountantEmail || process.env.ACCOUNTANT_EMAIL;
+      if (!recipientEmail) {
+        throw new Error("No accountant email provided");
+      }
+
+      // Initialize transporter
+      const transporter = this.initializeTransporter();
+
+      // Format filename with period info - parse period format "2024-01-A"
+      const [year, month, period] = payPeriod.period.split("-");
+      const filename = `Payroll_Report_${year}-${month}_Period${period}_${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`;
+
+      // Send email
+      const mailOptions: nodemailer.SendMailOptions = {
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to: recipientEmail,
+        subject: `[EmpCon] Payroll Report - ${year}-${month} Period ${period}`,
+        html: emailContent,
+        attachments: [
+          {
+            filename: filename,
+            content: attachmentBuffer,
+            contentType:
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          },
+        ],
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+
+      // Update pay period status to PROCESSING (email sent to accountant)
+      await PayPeriodService.updatePayPeriod(payPeriodId, {
+        status: "PROCESSING",
+      });
+
+      // Log successful send
+      const emailLog: EmailLog = {
+        payPeriodId,
+        recipientEmail,
+        sentAt: new Date(),
+        success: true,
+      };
+
+      console.log("Email sent successfully:", info.messageId);
+      console.log("Pay period status updated to PROCESSING");
+      return emailLog;
+    } catch (error) {
+      console.error("Email send failed:", error);
+
+      // Log failed send
+      const emailLog: EmailLog = {
+        payPeriodId,
+        recipientEmail:
+          accountantEmail || process.env.ACCOUNTANT_EMAIL || "unknown",
+        sentAt: new Date(),
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+
+      return emailLog;
+    }
+  }
+  private static preparePayrollEmailContent(payPeriod: any): string {
+    const template = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2c5aa0; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background-color: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
+            .info-box { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #2c5aa0; }
+            .footer { margin-top: 20px; padding: 15px; text-align: center; color: #666; font-size: 12px; }
+            .highlight { color: #2c5aa0; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>💼 EmpCon Payroll Report</h1>
+            </div>
+            <div class="content">
+                <p>Hello,</p>
+                <p>The payroll processing for {{year}}-{{month}} {{periodName}} has been completed. Please find the attached report.</p>
+
+                <div class="info-box">
+                    <h3>📊 Pay Period Information</h3>
+                    <p><strong>Pay Period:</strong> {{year}}-{{month}} {{periodName}}</p>
+                    <p><strong>Period:</strong> {{startDate}} ~ {{endDate}}</p>
+                    <p><strong>Pay Date:</strong> {{payDate}}</p>
+                    <p><strong>Report Generated:</strong> {{generatedDate}}</p>
+                </div>
+
+                <div class="info-box">
+                    <h3>📋 Attachment Information</h3>
+                    <p>The attached Excel file contains the following information:</p>
+                    <ul>
+                        <li><strong>Payroll Summary:</strong> Overall payroll status overview</li>
+                        <li><strong>Employee Details:</strong> Individual employee payroll details</li>
+                        <li><strong>Anomaly Report:</strong> Items requiring review</li>
+                    </ul>
+                </div>
+
+                <div class="info-box">
+                    <h3>⚠️ Review Required</h3>
+                    <p>Please review the attached payroll report and feel free to contact us if you have any questions.</p>
+                    <p class="highlight">Please pay special attention to the items in the 'Anomaly Report' sheet.</p>
+                </div>
+
+                <p>Thank you.</p>
+                <p><strong>EmpCon Payroll Management System</strong></p>
+            </div>
+            <div class="footer">
+                <p>This email was automatically sent by the EmpCon Payroll Management System.</p>
+                <p>If you have any questions, please contact the system administrator.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    const compiledTemplate = Handlebars.compile(template);
+
+    // Parse period format "2024-01-A" -> year, month, period
+    const [year, month, period] = payPeriod.period.split("-");
+    const periodName =
+      period === "A" ? "Period A (1st-15th)" : "Period B (16th-end)";
+    const startDate = new Date(payPeriod.startDate).toLocaleDateString("en-CA");
+    const endDate = new Date(payPeriod.endDate).toLocaleDateString("en-CA");
+    const payDate = new Date(payPeriod.payDate).toLocaleDateString("en-CA");
+    const generatedDate = new Date().toLocaleDateString("en-CA");
+
+    return compiledTemplate({
+      year,
+      month,
+      periodName,
+      startDate,
+      endDate,
+      payDate,
+      generatedDate,
+    });
+  }
+
+  // Test email configuration
+  static async testEmailConfig(): Promise<boolean> {
+    try {
+      const transporter = this.initializeTransporter();
+      await transporter.verify();
+      console.log("Email configuration verified successfully");
+      return true;
+    } catch (error) {
+      console.error("Email configuration test failed:", error);
+      return false;
+    }
+  }
+}
