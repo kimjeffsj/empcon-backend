@@ -35,6 +35,23 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
+      // Try temporary password if regular password failed
+      let isTempPasswordValid = false;
+
+      if (user.tempPasswordHash) {
+        // Check if temp password is expired
+        if (
+          user.tempPasswordExpiresAt &&
+          user.tempPasswordExpiresAt > new Date()
+        ) {
+          // Validate temporary password
+          isTempPasswordValid = await PasswordUtils.validatePassword(
+            password,
+            user.tempPasswordHash
+          );
+        }
+      }
+
       // Increment failed login attempts
       await prisma.user.update({
         where: { id: user.id },
@@ -83,6 +100,7 @@ export class AuthService {
       },
       token: accessToken,
       refreshToken,
+      passwordResetRequired: user.passwordResetRequired || false,
     };
   }
 
@@ -127,7 +145,8 @@ export class AuthService {
     }
 
     // Validate new password strength
-    const passwordValidation = PasswordUtils.validatePasswordStrength(newPassword);
+    const passwordValidation =
+      PasswordUtils.validatePasswordStrength(newPassword);
     if (!passwordValidation.isValid) {
       throw new AppError(
         `Password validation failed: ${passwordValidation.errors.join(", ")}`,

@@ -53,6 +53,7 @@ export class AuthController {
         message: "Login successful",
         data: {
           user: result.user,
+          passwordResetRequired: result.passwordResetRequired,
         },
       };
       res.json(response);
