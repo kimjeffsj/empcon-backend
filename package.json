@@ -24,7 +24,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@empcon/types": "^1.5.4",
+    "@empcon/types": "^1.5.5",
     "@prisma/client": "^6.16.3",
     "@types/ms": "^2.1.0",
     "bcryptjs": "^3.0.2",
@@ -42,7 +42,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
-    "nodemailer": "^6.9.0",
+    "nodemailer": "^7.0.11",
     "zod": "^4.0.17"
   },
   "devDependencies": {
