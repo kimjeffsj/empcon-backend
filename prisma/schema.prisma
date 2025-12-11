@@ -27,6 +27,8 @@ model User {
   tempPasswordHash      String?   @map("temp_password_hash")
   tempPasswordExpiresAt DateTime? @map("temp_password_expires_at")
   passwordResetRequired Boolean   @default(false) @map("password_reset_required")
+  passwordResetToken    String?   @map("password_reset_token")
+  passwordResetExpires  DateTime? @map("password_reset_expires")
 
   // Employee Information (consolidated from EmployeeProfile)
   employeeNumber        String?  @unique @map("employee_number")
@@ -194,9 +196,9 @@ model OvertimeRequest {
 
 model PayPeriod {
   id        String          @id @default(cuid())
-  startDate DateTime        @map("start_date") 
-  endDate   DateTime        @map("end_date") 
-  payDate   DateTime        @map("pay_date") 
+  startDate DateTime        @map("start_date")
+  endDate   DateTime        @map("end_date")
+  payDate   DateTime        @map("pay_date")
   status    PayPeriodStatus @default(OPEN)
   createdAt DateTime        @default(now()) @map("created_at")
   updatedAt DateTime        @updatedAt @map("updated_at")

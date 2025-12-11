@@ -9,6 +9,7 @@ import {
 } from "@empcon/types";
 import { PasswordUtils } from "@/utils/password.utils";
 import { EmailService } from "@/services/email/emailService";
+import crypto from "crypto";
 
 export class AuthService {
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
@@ -52,20 +53,23 @@ export class AuthService {
         }
       }
 
-      // Increment failed login attempts
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          failedLoginAttempts: { increment: 1 },
-          // Lock account after 5 failed attempts for 15 minutes
-          accountLockedUntil:
-            user.failedLoginAttempts >= 4
-              ? new Date(Date.now() + 15 * 60 * 1000)
-              : undefined,
-        },
-      });
+      // If temporary password is also invalid, increment failed attempts and throw error
+      if (!isTempPasswordValid) {
+        // Increment failed login attempts
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            failedLoginAttempts: { increment: 1 },
+            // Lock account after 5 failed attempts for 15 minutes
+            accountLockedUntil:
+              user.failedLoginAttempts >= 4
+                ? new Date(Date.now() + 15 * 60 * 1000)
+                : undefined,
+          },
+        });
 
-      throw new AppError("Invalid credentials", 401);
+        throw new AppError("Invalid credentials", 401);
+      }
     }
 
     // Check if user is active
@@ -163,10 +167,25 @@ export class AuthService {
     }
 
     // Verify current password using PasswordUtils for consistency
-    const isCurrentPasswordValid = await PasswordUtils.validatePassword(
+    // First try regular password
+    let isCurrentPasswordValid = await PasswordUtils.validatePassword(
       currentPassword,
       user.passwordHash
     );
+
+    // If regular password failed, try temporary password (for first-time login password change)
+    if (!isCurrentPasswordValid && user.tempPasswordHash) {
+      // Check if temp password is still valid (not expired)
+      if (
+        user.tempPasswordExpiresAt &&
+        user.tempPasswordExpiresAt > new Date()
+      ) {
+        isCurrentPasswordValid = await PasswordUtils.validatePassword(
+          currentPassword,
+          user.tempPasswordHash
+        );
+      }
+    }
 
     if (!isCurrentPasswordValid) {
       throw new AppError("Current password is incorrect", 400);
@@ -270,5 +289,101 @@ export class AuthService {
     });
 
     return tempPassword;
+  }
+
+  static async requestPasswordReset(email: string): Promise<void> {
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    // Silently executed
+    if (!user) {
+      return;
+    }
+
+    // Generate secure random token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // Hash token before storing in db
+    const hashedToken = await PasswordUtils.hashPassword(resetToken);
+
+    // Token expires in 1 hour
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Save hashed token to db
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: expiresAt,
+      },
+    });
+
+    // Send Password reset email
+    await EmailService.sendPasswordResetEmail({
+      email: user.email,
+      resetToken, // Send unhashed token in email
+      employeeName: `${user.firstName} ${user.lastName}`,
+    });
+  }
+
+  static async resetPassword(
+    token: string,
+    newPassword: string
+  ): Promise<void> {
+    // Validate new password
+    const passwordValidation =
+      PasswordUtils.validatePasswordStrength(newPassword);
+
+    if (!passwordValidation.isValid) {
+      throw new AppError(
+        `Password validation failed: ${passwordValidation.errors.join(", ")}`,
+        400
+      );
+    }
+
+    // Find all users with non-expired reset token
+    const users = await prisma.user.findMany({
+      where: {
+        passwordResetToken: { not: null },
+        passwordResetExpires: { gt: new Date() },
+      },
+    });
+
+    // Find user by comparing hashed tokens
+    let matchedUser = null;
+    for (const user of users) {
+      if (user.passwordResetToken) {
+        const isValidToken = await PasswordUtils.validatePassword(
+          token,
+          user.passwordResetToken
+        );
+        if (isValidToken) {
+          matchedUser = user;
+          break;
+        }
+      }
+    }
+
+    if (!matchedUser) {
+      throw new AppError("Invalid or expired password reset token", 400);
+    }
+
+    // Hash new password
+    const hashedPassword = await PasswordUtils.hashPassword(newPassword);
+
+    // Update password and clear reset token fields
+    await prisma.user.update({
+      where: { id: matchedUser.id },
+      data: {
+        passwordHash: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+        tempPasswordHash: null,
+        tempPasswordExpiresAt: null,
+        passwordResetRequired: false,
+      },
+    });
   }
 }
