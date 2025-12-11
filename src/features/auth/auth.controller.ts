@@ -161,4 +161,45 @@ export class AuthController {
       next(error);
     }
   }
+
+  static async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        throw new AppError("Email is required", 400);
+      }
+
+      await AuthService.requestPasswordReset(email);
+
+      // Always return success to avoid email enumeration
+      res.json({
+        success: true,
+        message:
+          "If an account exists with this email, a password reset link will be sent.",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { token, newPassword } = req.body;
+
+      if (!token || !newPassword) {
+        throw new AppError("Token and new password are required", 400);
+      }
+
+      await AuthService.resetPassword(token, newPassword);
+
+      res.json({
+        success: true,
+        message:
+          "Password has been reset successfully. You can now login with new password.",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
