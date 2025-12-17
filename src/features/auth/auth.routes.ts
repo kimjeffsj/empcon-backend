@@ -8,6 +8,8 @@ import {
   registerSchema,
   refreshTokenSchema,
   changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from "@empcon/types";
 
 const router = Router();
@@ -32,6 +34,20 @@ router.post(
   authRateLimitMiddleware,
   validateBody(registerSchema),
   AuthController.register
+);
+
+router.post(
+  "/forgot-password",
+  authRateLimitMiddleware,
+  validateBody(forgotPasswordSchema),
+  AuthController.forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  authRateLimitMiddleware,
+  validateBody(resetPasswordSchema),
+  AuthController.resetPassword
 );
 
 // Protected routes
