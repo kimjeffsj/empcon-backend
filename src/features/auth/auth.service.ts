@@ -302,6 +302,15 @@ export class AuthService {
       return;
     }
 
+    // Only allow EMPLOYEE role to reset password via forgot-password flow
+    if (user.role !== "EMPLOYEE") {
+      // Silently return to prevent email enumeration
+      console.log(
+        `Password reset blocked for non-employee role: ${user.role} (${user.email})`
+      );
+      return;
+    }
+
     // Generate secure random token
     const resetToken = crypto.randomBytes(32).toString("hex");
 
